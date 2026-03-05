@@ -103,6 +103,7 @@ class Dripper:
         self._llm: Optional[InferenceBackend] = None
         self._async_llm: Optional[AsyncInferenceBackend] = None
         self._tokenizer: Optional[AutoTokenizer] = None
+        self._async_tokenizer = None  # For async_vllm backend
         self._trafilatura_settings = None
         self._trafilatura = None
 
@@ -221,6 +222,41 @@ class Dripper:
                 ) from e
         return self._tokenizer
 
+    def get_async_tokenizer(self):
+        """
+        Get async tokenizer instance (lazy-loaded).
+
+        For async_vllm backend, returns a wrapper that uses the remote server's tokenizer.
+
+        Returns:
+            Tokenizer wrapper with __call__ method that returns token IDs
+
+        Raises:
+            DripperLoadModelError: When tokenizer initialization fails
+        """
+        if self._async_tokenizer is None:
+            if self.inference_backend == 'async_vllm':
+                # Get the async LLM which has tokenize_sync method
+                async_llm = self.get_async_llm()
+
+                class AsyncTokenizerWrapper:
+                    """Wrapper to provide sync interface for async tokenizer."""
+
+                    def __init__(self, backend):
+                        self._backend = backend
+
+                    def __call__(self, text: str) -> dict:
+                        """Tokenize text and return dict with input_ids."""
+                        token_ids = self._backend.tokenize_sync(text)
+                        return {'input_ids': token_ids}
+
+                self._async_tokenizer = AsyncTokenizerWrapper(async_llm)
+            else:
+                # Fallback to local tokenizer
+                self._async_tokenizer = self.get_tokenizer()
+
+        return self._async_tokenizer
+
     def get_llm(self) -> InferenceBackend:
         """
         Get LLM instance (lazy-loaded).
@@ -330,7 +366,11 @@ class Dripper:
             full_prompt = get_full_prompt(simplified_html)
 
             # Check if prompt length exceeds model's maximum sequence length
-            tokenizer = self.get_tokenizer()
+            # Use remote tokenizer for async_vllm, local tokenizer otherwise
+            if self.inference_backend == 'async_vllm':
+                tokenizer = self.get_async_tokenizer()
+            else:
+                tokenizer = self.get_tokenizer()
             prompt_length = len(tokenizer(full_prompt)['input_ids'])
             # Use max_item_id * 8 as approximate length of response
             if prompt_length + max_item_id * 8 >= self.max_sequence_length:

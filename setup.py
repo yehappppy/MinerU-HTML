@@ -37,7 +37,7 @@ baselines_requires = read_requirements(baselines_file)
 
 setup(
     name='dripper',
-    version='1.0.0',
+    version='1.2.0',
     description='HTML main content extractor based on large language models',
     packages=find_packages(include=['dripper*']),
     include_package_data=True,

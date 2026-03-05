@@ -168,3 +168,54 @@ class AsyncVLLMInferenceBackend(AsyncInferenceBackend):
             )
         except Exception as e:
             raise RuntimeError(f"Async inference failed: {str(e)}") from e
+
+    async def tokenize(self, text: str) -> list[int]:
+        """
+        Tokenize text using the remote vLLM server's tokenizer.
+
+        Args:
+            text: Text to tokenize
+
+        Returns:
+            List of token IDs
+        """
+        try:
+            response = await self.client.post(
+                "/tokenize",
+                json={
+                    "model": self.model_name,
+                    "prompt": text,
+                }
+            )
+            data = response.json()
+            return data.get("prompt_token_ids", [])
+        except Exception as e:
+            raise RuntimeError(f"Tokenization failed: {str(e)}") from e
+
+    def tokenize_sync(self, text: str) -> list[int]:
+        """
+        Synchronously tokenize text using the remote vLLM server's tokenizer.
+
+        This is a sync wrapper around the async tokenize method.
+
+        Args:
+            text: Text to tokenize
+
+        Returns:
+            List of token IDs
+        """
+        import asyncio
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            # No running loop, create a new one
+            loop = asyncio.new_event_loop()
+            return loop.run_until_complete(self.tokenize(text))
+
+        # There's a running loop, use run_in_executor to avoid blocking
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor() as pool:
+            future = pool.submit(
+                asyncio.run, self.tokenize(text)
+            )
+            return future.result()
