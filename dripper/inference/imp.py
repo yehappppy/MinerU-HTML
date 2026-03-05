@@ -1,7 +1,9 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Dict, Optional, override
+from typing import Any, Dict, Optional
+from typing import override
 
+from openai import AsyncOpenAI
 from transformers import AutoModelForCausalLM, pipeline
 from vllm import LLM, SamplingParams
 
@@ -17,6 +19,14 @@ class ModelResponse:
 class InferenceBackend(ABC):
     @abstractmethod
     def generate(self, prompt_list: list[str]) -> list[ModelResponse]:
+        pass
+
+
+class AsyncInferenceBackend(ABC):
+    """Abstract base class for async inference backends."""
+
+    @abstractmethod
+    async def generate(self, prompt_list: list[str]) -> list[ModelResponse]:
         pass
 
 
@@ -90,3 +100,71 @@ class TransformersInferenceBackend(InferenceBackend):
                 )
             )
         return response
+
+
+class AsyncVLLMInferenceBackend(AsyncInferenceBackend):
+    """
+    Async inference backend using OpenAI-compatible API for remote vLLM server.
+
+    This backend connects to a remote vLLM server via its OpenAI-compatible API
+    and uses async HTTP requests for inference, allowing better concurrency
+    when serving multiple requests.
+    """
+
+    def __init__(
+        self,
+        api_base: str,
+        model_name: str,
+        model_gen_kwargs: Dict[str, Any] = {},
+    ):
+        """
+        Initialize AsyncVLLMInferenceBackend.
+
+        Args:
+            api_base: Base URL of the vLLM OpenAI API (e.g., "http://localhost:8000")
+            model_name: Name of the model served by vLLM
+            model_gen_kwargs: Additional generation parameters
+        """
+        self.client = AsyncOpenAI(api_key="dummy", base_url=api_base)
+        self.model_name = model_name
+        self.gen_kwargs = {
+            'max_tokens': model_gen_kwargs.pop('max_tokens', 8 * 1024),
+            'temperature': model_gen_kwargs.pop('temperature', 0),
+            'top_p': model_gen_kwargs.pop('top_p', 0.95),
+            'top_k': model_gen_kwargs.pop('top_k', -1),
+            **model_gen_kwargs
+        }
+
+    async def generate(self, prompt_list: list[str]) -> list[ModelResponse]:
+        """
+        Generate responses for multiple prompts asynchronously.
+
+        Args:
+            prompt_list: List of prompt strings
+
+        Returns:
+            List of ModelResponse objects
+        """
+        import asyncio
+
+        # Create async tasks for all prompts
+        tasks = [
+            self._generate_single(prompt)
+            for prompt in prompt_list
+        ]
+        return await asyncio.gather(*tasks)
+
+    async def _generate_single(self, prompt: str) -> ModelResponse:
+        """Generate response for a single prompt."""
+        try:
+            response = await self.client.completions.create(
+                model=self.model_name,
+                prompt=prompt,
+                **self.gen_kwargs
+            )
+            return ModelResponse(
+                prompt=prompt,
+                generated_text=response.choices[0].text,
+            )
+        except Exception as e:
+            raise RuntimeError(f"Async inference failed: {str(e)}") from e

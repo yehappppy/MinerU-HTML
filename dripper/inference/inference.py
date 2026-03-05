@@ -13,7 +13,7 @@ from vllm import SamplingParams
 from dripper.base import (DripperGenerateInput, DripperGenerateOutput,
                           check_and_find_max_item_id)
 from dripper.exceptions import DripperTypeError
-from dripper.inference.imp import InferenceBackend
+from dripper.inference.imp import AsyncInferenceBackend, InferenceBackend
 from dripper.inference.logits import build_token_state_machine
 
 
@@ -101,6 +101,84 @@ def generate(
         sampling_params_arg = base_gen_config
     # Perform batch generation
     res_list = llm.generate(prompt_list)
+
+    # Convert results to DripperGenerateOutput objects
+    output_list = []
+    for input_data, res_data in zip(input_list, res_list):
+        case_id = input_data.case_id
+        output_list.append(
+            DripperGenerateOutput(
+                case_id=case_id, response=res_data.generated_text
+            )
+        )
+    return output_list
+
+
+async def generate_async(
+    llm: AsyncInferenceBackend,
+    input: Union[DripperGenerateInput, list[DripperGenerateInput], str, list[str]],
+    use_state_machine: str = None,
+) -> list[DripperGenerateOutput]:
+    """
+    Generate structured outputs asynchronously using OpenAI-compatible API.
+
+    Performs async batch inference on input data. Note: State machine is not
+    supported for async backend since it requires local tokenizer access.
+
+    Args:
+        llm: Async LLM instance for inference
+        input: Input data in various formats:
+               - Single DripperGenerateInput
+               - List of DripperGenerateInput
+               - Single HTML string (will be converted to DripperGenerateInput)
+               - List of HTML strings
+        use_state_machine: State machine version (NOT SUPPORTED for async, will be ignored)
+
+    Returns:
+        List of DripperGenerateOutput objects containing generated responses
+
+    Raises:
+        DripperTypeError: If input type is not supported
+    """
+    # Normalize input to list of DripperGenerateInput
+    if isinstance(input, list):
+        input_list = []
+        for p in input:
+            if isinstance(p, str):
+                input_list.append(
+                    DripperGenerateInput(alg_html=p, prompt=lambda x: x)
+                )
+            elif isinstance(p, DripperGenerateInput):
+                input_list.append(p)
+            else:
+                raise DripperTypeError(
+                    f'Unsupported input type: {type(p)}, {p}'
+                )
+    elif isinstance(input, str):
+        input_list = [
+            DripperGenerateInput(alg_html=input, prompt=lambda x: x)
+        ]
+    elif isinstance(input, DripperGenerateInput):
+        input_list = [input]
+    else:
+        raise DripperTypeError(
+            f'Unsupported input type: {type(input)}, {input}'
+        )
+
+    # Extract prompts from input data
+    prompt_list = [data.full_prompt for data in input_list]
+
+    # Note: State machine is not supported for async backend
+    # because it requires local tokenizer access for logits processing
+    if use_state_machine:
+        import logging
+        logging.warning(
+            "State machine is not supported for async inference backend. "
+            "Ignoring use_state_machine parameter."
+        )
+
+    # Perform async batch generation
+    res_list = await llm.generate(prompt_list)
 
     # Convert results to DripperGenerateOutput objects
     output_list = []

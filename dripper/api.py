@@ -18,10 +18,12 @@ from dripper.exceptions import (DripperConfigError, DripperEnvError,
                                 DripperLoadModelError, DripperPostprocessError,
                                 DripperPreprocessError,
                                 DripperResponseParseError, DripperTypeError)
-from dripper.inference.imp import (InferenceBackend,
+from dripper.inference.imp import (AsyncInferenceBackend,
+                                   AsyncVLLMInferenceBackend,
+                                   InferenceBackend,
                                    TransformersInferenceBackend,
                                    VLLMInferenceBackend)
-from dripper.inference.inference import generate
+from dripper.inference.inference import generate, generate_async
 from dripper.inference.logits import parse_llm_response
 from dripper.inference.prompt import get_full_prompt
 from dripper.process.map_to_main import extract_main_html
@@ -99,6 +101,7 @@ class Dripper:
 
         # Lazy-loaded attributes (initialized on first use)
         self._llm: Optional[InferenceBackend] = None
+        self._async_llm: Optional[AsyncInferenceBackend] = None
         self._tokenizer: Optional[AutoTokenizer] = None
         self._trafilatura_settings = None
         self._trafilatura = None
@@ -163,15 +166,36 @@ class Dripper:
                 'Configuration must contain "model_path" parameter'
             )
 
-        if not os.path.exists(config['model_path']):
-            logger.warning(f"Model path does not exist: {config['model_path']}")
+        # Get inference backend
+        inference_backend = config.get('inference_backend', 'vllm')
 
-        # Validate tensor parallel size
-        tp = config.get('model_init_kwargs', {}).get('tensor_parallel_size', 1)
+        # Validate based on backend type
+        if inference_backend in ('vllm', 'transformers'):
+            # These backends require local model path
+            if not os.path.exists(config['model_path']):
+                logger.warning(f"Model path does not exist: {config['model_path']}")
 
-        if not isinstance(tp, int) or tp < 1:
+            # Validate tensor parallel size for vllm
+            if inference_backend == 'vllm':
+                tp = config.get('model_init_kwargs', {}).get('tensor_parallel_size', 1)
+                if not isinstance(tp, int) or tp < 1:
+                    raise DripperConfigError(
+                        'tp (tensor parallel size) must be a positive integer'
+                    )
+        elif inference_backend == 'async_vllm':
+            # async_vllm requires api_base in model_init_kwargs
+            api_base = config.get('model_init_kwargs', {}).get('api_base')
+            if not api_base:
+                raise DripperConfigError(
+                    'api_base is required for async_vllm inference backend. '
+                    'Please set it in model_init_kwargs.'
+                )
+            # For async_vllm, model_path can be a placeholder or model name
+            logger.info(f"Using async vLLM with API base: {api_base}")
+        else:
             raise DripperConfigError(
-                'tp (tensor parallel size) must be a positive integer'
+                f'Unsupported inference backend: {inference_backend}. '
+                f'Available: vllm, transformers, async_vllm'
             )
 
         return config.copy()
@@ -235,6 +259,51 @@ class Dripper:
                 ) from e
 
         return self._llm
+
+    def get_async_llm(self) -> AsyncInferenceBackend:
+        """
+        Get async LLM instance (lazy-loaded).
+
+        This method is used for async inference with remote vLLM server.
+        Requires 'async_vllm' inference backend and 'api_base' in model_init_kwargs.
+
+        Returns:
+            AsyncInferenceBackend instance for async inference
+
+        Raises:
+            DripperConfigError: When async backend is not properly configured
+            DripperLoadModelError: When model loading fails
+        """
+        if self._async_llm is None:
+            try:
+                logger.info(f'Loading async model: {self.model_path}')
+                if self.inference_backend == 'async_vllm':
+                    api_base = self.model_init_kwargs.get('api_base')
+                    if not api_base:
+                        raise DripperConfigError(
+                            "api_base is required for async_vllm inference backend. "
+                            "Please set it in model_init_kwargs."
+                        )
+                    model_name = self.model_init_kwargs.get('model_name', 'default')
+                    self._async_llm = AsyncVLLMInferenceBackend(
+                        api_base=api_base,
+                        model_name=model_name,
+                        model_gen_kwargs=self.model_gen_kwargs
+                    )
+                else:
+                    raise DripperConfigError(
+                        f'Async inference requires "async_vllm" backend, '
+                        f'but got "{self.inference_backend}"'
+                    )
+                logger.info('Async model loading completed')
+            except Exception as e:
+                if isinstance(e, DripperConfigError):
+                    raise e
+                raise DripperLoadModelError(
+                    f'Async model loading failed: {str(e)}'
+                ) from e
+
+        return self._async_llm
 
     def pre_process(
         self, raw_input: DripperInput
@@ -484,4 +553,112 @@ class Dripper:
 
         except Exception as e:
             logger.error(f'Error occurred during processing: {str(e)}')
+            raise
+
+    async def process_async(
+        self,
+        input_data: Union[DripperInput, List[DripperInput], str, List[str]],
+    ) -> Union[List[DripperOutput], Tuple]:
+        """
+        Process input asynchronously and return results.
+
+        Complete async processing pipeline:
+        Input normalization → Preprocessing → Async Model inference → Postprocessing
+
+        Note: This method requires 'async_vllm' inference backend configured
+        with a remote vLLM server.
+
+        Args:
+            input_data: Input data in various formats (string, DripperInput,
+                       or lists of these)
+
+        Returns:
+            In normal mode: List of DripperOutput objects
+            In debug mode: Tuple of (output_map, generate_inputs, process_datas)
+
+        Raises:
+            DripperError: When errors occur during processing (if raise_errors=True)
+            DripperConfigError: When async backend is not properly configured
+        """
+        try:
+            # Normalize input format
+            input_map = self._normalize_input(input_data)
+            logger.info(f'Starting to process {len(input_map)} inputs (async)')
+
+            # Preprocess all inputs (sync, but fast)
+            generate_inputs = {}
+            process_datas = {}
+
+            for idx, raw_input in input_map.items():
+                try:
+                    generate_input, process_data = self.pre_process(raw_input)
+                except Exception as e:
+                    if self.raise_errors:
+                        raise e
+                    continue
+                generate_inputs[idx] = generate_input
+                process_datas[idx] = process_data
+
+            # Get async LLM instance and perform batch inference
+            llm = self.get_async_llm()
+            logger.info('Starting async model inference')
+            to_process_keys = sorted(generate_inputs.keys())
+
+            # Perform async generation
+            generate_outputs = await generate_async(
+                llm,
+                [generate_inputs[key] for key in to_process_keys],
+                use_state_machine=None,  # State machine not supported for async
+            )
+
+            # Postprocess all outputs (sync, but fast)
+            output_map = {}
+            for idx, generate_output in zip(to_process_keys, generate_outputs):
+                process_data = process_datas[idx]
+                try:
+                    output = self.post_process(generate_output, process_data)
+                except Exception as e:
+                    if self.raise_errors:
+                        raise e
+                    continue
+                output_map[idx] = output
+
+            # Handle cases that failed during preprocessing or postprocessing
+            for idx in input_map.keys():
+                if idx not in output_map:
+                    if self.use_fall_back:
+                        try:
+                            output = self.fall_back_func(
+                                input_map[idx].raw_html, input_map[idx].url
+                            )
+                            output_map[idx] = DripperOutput(
+                                main_html=output,
+                                case_id=input_map[idx].case_id,
+                            )
+                        except Exception as e:
+                            if self.raise_errors:
+                                raise e
+                            output_map[idx] = DripperOutput(
+                                main_html=None,
+                                case_id=input_map[idx].case_id,
+                            )
+                    else:
+                        output_map[idx] = DripperOutput(
+                            main_html=None, case_id=input_map[idx].case_id
+                        )
+
+            logger.info(f'Async processing completed, output {len(output_map)} results')
+
+            # Return different formats based on debug mode
+            if self.debug:
+                # Debug mode: return output map, generate inputs, and process data
+                return output_map, generate_inputs, process_datas
+            else:
+                # Normal mode: return only final output results
+                sorted_keys = sorted(output_map.keys())
+                output_list = [output_map[key] for key in sorted_keys]
+                return output_list
+
+        except Exception as e:
+            logger.error(f'Error occurred during async processing: {str(e)}')
             raise
