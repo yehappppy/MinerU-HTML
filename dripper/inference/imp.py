@@ -114,6 +114,7 @@ class AsyncVLLMInferenceBackend(AsyncInferenceBackend):
     def __init__(
         self,
         api_base: str,
+        api_key: str,
         model_name: str,
         model_gen_kwargs: Dict[str, Any] = {},
     ):
@@ -125,14 +126,19 @@ class AsyncVLLMInferenceBackend(AsyncInferenceBackend):
             model_name: Name of the model served by vLLM
             model_gen_kwargs: Additional generation parameters
         """
-        self.client = AsyncOpenAI(api_key="dummy", base_url=api_base)
+        # Store original base URL for tokenize endpoint
+        self._api_base = api_base.rstrip('/')
+
+        # Ensure base_url ends with /v1 for OpenAI-compatible API
+        api_base_v1 = api_base.rstrip('/') + '/v1'
+        self.client = AsyncOpenAI(api_key=api_key, base_url=api_base_v1)
         self.model_name = model_name
+        # Note: OpenAI Completions API doesn't support top_k
+        # Only max_tokens, temperature, top_p are supported
         self.gen_kwargs = {
             'max_tokens': model_gen_kwargs.pop('max_tokens', 8 * 1024),
             'temperature': model_gen_kwargs.pop('temperature', 0),
             'top_p': model_gen_kwargs.pop('top_p', 0.95),
-            'top_k': model_gen_kwargs.pop('top_k', -1),
-            **model_gen_kwargs
         }
 
     async def generate(self, prompt_list: list[str]) -> list[ModelResponse]:
@@ -179,16 +185,22 @@ class AsyncVLLMInferenceBackend(AsyncInferenceBackend):
         Returns:
             List of token IDs
         """
+        import httpx
         try:
-            response = await self.client.post(
-                "/tokenize",
-                json={
-                    "model": self.model_name,
-                    "prompt": text,
-                }
-            )
-            data = response.json()
-            return data.get("prompt_token_ids", [])
+            # Use httpx directly since /tokenize is not part of OpenAI API
+            # Use original api_base (without /v1) for vLLM native endpoints
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{self._api_base}/tokenize",
+                    json={
+                        "model": self.model_name,
+                        "prompt": text,
+                    },
+                    timeout=30.0
+                )
+                response.raise_for_status()
+                data = response.json()
+                return data.get("prompt_token_ids", [])
         except Exception as e:
             raise RuntimeError(f"Tokenization failed: {str(e)}") from e
 

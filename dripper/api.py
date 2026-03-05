@@ -320,9 +320,16 @@ class Dripper:
                             "api_base is required for async_vllm inference backend. "
                             "Please set it in model_init_kwargs."
                         )
-                    model_name = self.model_init_kwargs.get('model_name', 'default')
+                    api_key = self.model_init_kwargs.get('api_key')
+                    if not api_key:
+                        raise DripperConfigError(
+                            "api_key is required for async_vllm inference backend. "
+                            "Please set it in model_init_kwargs."
+                        )
+                    model_name = self.model_init_kwargs.get('model_name', 'MinerU-HTML')
                     self._async_llm = AsyncVLLMInferenceBackend(
                         api_base=api_base,
+                        api_key=api_key,
                         model_name=model_name,
                         model_gen_kwargs=self.model_gen_kwargs
                     )

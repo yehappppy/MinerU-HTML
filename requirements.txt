@@ -2,6 +2,7 @@ beautifulsoup4
 fastapi
 html2text
 html_text
+httpx
 jieba
 lxml
 openai
@@ -11,3 +12,4 @@ ray
 rouge_score
 trafilatura
 vllm==0.11.1
+
