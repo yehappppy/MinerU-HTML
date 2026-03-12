@@ -1,5 +1,4 @@
-"""
-HTML simplification and processing utilities.
+"""HTML simplification and processing utilities.
 
 This module provides functions to simplify HTML structure, extract paragraphs,
 and process HTML content for main content extraction tasks.
@@ -8,18 +7,62 @@ and process HTML content for main content extraction tasks.
 import copy
 import re
 import uuid
-from typing import Dict, List, Tuple
 
 from bs4 import BeautifulSoup
 from lxml import etree, html
 
 # Inline tags that should be treated as inline elements
 inline_tags = {
-    'map', 'optgroup', 'span', 'br', 'input', 'time', 'u', 'strong', 'textarea', 'small', 'sub',
-    'samp', 'blink', 'b', 'code', 'nobr', 'strike', 'bdo', 'basefont', 'abbr', 'var', 'i', 'cccode-inline',
-    'select', 's', 'pic', 'label', 'mark', 'object', 'dd', 'dt', 'ccmath-inline', 'svg', 'li',
-    'button', 'a', 'font', 'dfn', 'sup', 'kbd', 'q', 'script', 'acronym', 'option', 'img', 'big', 'cite',
-    'em', 'marked-tail', 'marked-text'
+    'map',
+    'optgroup',
+    'span',
+    'br',
+    'input',
+    'time',
+    'u',
+    'strong',
+    'textarea',
+    'small',
+    'sub',
+    'samp',
+    'blink',
+    'b',
+    'code',
+    'nobr',
+    'strike',
+    'bdo',
+    'basefont',
+    'abbr',
+    'var',
+    'i',
+    'cccode-inline',
+    'select',
+    's',
+    'pic',
+    'label',
+    'mark',
+    'object',
+    'dd',
+    'dt',
+    'ccmath-inline',
+    'svg',
+    'li',
+    'button',
+    'a',
+    'font',
+    'dfn',
+    'sup',
+    'kbd',
+    'q',
+    'script',
+    'acronym',
+    'option',
+    'img',
+    'big',
+    'cite',
+    'em',
+    'marked-tail',
+    'marked-text',
     # 'td', 'th'  # Commented out: table cells are handled specially
 }
 
@@ -36,7 +79,7 @@ tags_to_remove = {
     'link',
     'meta',
     'iframe',
-    'frame'
+    'frame',
 }
 
 # Special tags to preserve even if they are inline tags
@@ -44,7 +87,9 @@ EXCLUDED_TAGS = {'img', 'br', 'li', 'dt', 'dd', 'td', 'th'}
 
 # Attribute name patterns to remove (standalone words)
 ATTR_PATTERNS_TO_REMOVE = {
-    'nav', 'footer', 'header',  # Standalone words
+    'nav',
+    'footer',
+    'header',  # Standalone words
 }
 
 # Attribute name patterns to remove (specific prefixes/suffixes)
@@ -59,8 +104,7 @@ tail_block_tag = 'cc-alg-uc-text'
 
 
 def add_data_uids(dom: html.HtmlElement) -> None:
-    """
-    Add data-uid attributes to all DOM nodes (recursively for all child nodes).
+    """Add data-uid attributes to all DOM nodes (recursively for all child nodes).
 
     Args:
         dom: HTML element to process
@@ -73,8 +117,7 @@ def add_data_uids(dom: html.HtmlElement) -> None:
 
 
 def remove_all_uids(dom: html.HtmlElement) -> None:
-    """
-    Remove all data-uid attributes from DOM.
+    """Remove all data-uid attributes from DOM.
 
     Args:
         dom: HTML element to process
@@ -84,9 +127,8 @@ def remove_all_uids(dom: html.HtmlElement) -> None:
             del node.attrib['data-uid']
 
 
-def build_uid_map(dom: html.HtmlElement) -> Dict[str, html.HtmlElement]:
-    """
-    Build a mapping dictionary from data-uid to nodes.
+def build_uid_map(dom: html.HtmlElement) -> dict[str, html.HtmlElement]:
+    """Build a mapping dictionary from data-uid to nodes.
 
     Args:
         dom: HTML element to process
@@ -98,8 +140,7 @@ def build_uid_map(dom: html.HtmlElement) -> Dict[str, html.HtmlElement]:
 
 
 def is_unique_attribute(tree, attr_name, attr_value):
-    """
-    Check if the given attribute name and value combination is unique in the document.
+    """Check if the given attribute name and value combination is unique in the document.
 
     Args:
         tree: XML/HTML tree to search
@@ -114,8 +155,7 @@ def is_unique_attribute(tree, attr_name, attr_value):
 
 
 def is_data_table(table_element: html.HtmlElement) -> bool:
-    """
-    Determine if a table is a data table rather than a layout table.
+    """Determine if a table is a data table rather than a layout table.
 
     Checks various indicators that suggest the table contains actual data
     rather than being used for page layout.
@@ -159,11 +199,10 @@ def is_data_table(table_element: html.HtmlElement) -> bool:
 
 def extract_paragraphs(
     processing_dom: html.HtmlElement,
-    uid_map: Dict[str, html.HtmlElement],
+    uid_map: dict[str, html.HtmlElement],
     include_parents: bool = True,
-) -> List[Dict[str, str]]:
-    """
-    Extract paragraphs from HTML DOM.
+) -> list[dict[str, str]]:
+    """Extract paragraphs from HTML DOM.
 
     The content_type field is used to identify the type of paragraph content.
     Possible values include:
@@ -187,7 +226,6 @@ def extract_paragraphs(
         - content_type: Type of content in the paragraph
         - _original_element: Reference to the original element
     """
-
     # Create table type mapping to record whether each table is a data table or layout table
     table_types = {}
 
@@ -224,8 +262,8 @@ def extract_paragraphs(
         return any(is_block_element(child) for child in node.iterchildren())
 
     def clone_structure(
-        path: List[html.HtmlElement],
-    ) -> Tuple[html.HtmlElement, html.HtmlElement]:
+        path: list[html.HtmlElement],
+    ) -> tuple[html.HtmlElement, html.HtmlElement]:
         """Clone node structure."""
         if not path:
             raise ValueError('Path cannot be empty')
@@ -244,7 +282,7 @@ def extract_paragraphs(
 
     paragraphs = []
 
-    def process_node(node: html.HtmlElement, path: List[html.HtmlElement]):
+    def process_node(node: html.HtmlElement, path: list[html.HtmlElement]):
         """Recursively process nodes."""
         current_path = path + [node]
         inline_content = []
@@ -272,11 +310,13 @@ def extract_paragraphs(
 
                         # Get original element
                         original_element = uid_map.get(node.get('data-uid'))
-                        paragraphs.append({
-                            'html': etree.tostring(root, encoding='unicode').strip(),
-                            'content_type': content_type,
-                            '_original_element': original_element,  # Add original element reference
-                        })
+                        paragraphs.append(
+                            {
+                                'html': etree.tostring(root, encoding='unicode').strip(),
+                                'content_type': content_type,
+                                '_original_element': original_element,  # Add original element reference
+                            }
+                        )
                     except ValueError:
                         pass
                     inline_content = []
@@ -292,11 +332,13 @@ def extract_paragraphs(
 
                         # Get original element
                         original_element = uid_map.get(child.get('data-uid'))
-                        paragraphs.append({
-                            'html': etree.tostring(root, encoding='unicode').strip(),
-                            'content_type': 'block_element',
-                            '_original_element': original_element,  # Add original element reference
-                        })
+                        paragraphs.append(
+                            {
+                                'html': etree.tostring(root, encoding='unicode').strip(),
+                                'content_type': 'block_element',
+                                '_original_element': original_element,  # Add original element reference
+                            }
+                        )
                     except ValueError:
                         pass
                 else:
@@ -324,24 +366,22 @@ def extract_paragraphs(
                     content_type = 'unwrapped_text'
                 elif all(t == 'element' for t in content_sources):
                     content_type = 'inline_elements'
-                elif all(
-                    t in ('direct_text', 'tail_text') for t in content_sources
-                ):
+                elif all(t in ('direct_text', 'tail_text') for t in content_sources):
                     content_type = 'unwrapped_text'
 
                 # Get original element
                 original_element = uid_map.get(node.get('data-uid'))
-                paragraphs.append({
-                    'html': etree.tostring(root, encoding='unicode').strip(),
-                    'content_type': content_type,
-                    '_original_element': original_element,  # Add original element reference
-                })
+                paragraphs.append(
+                    {
+                        'html': etree.tostring(root, encoding='unicode').strip(),
+                        'content_type': content_type,
+                        '_original_element': original_element,  # Add original element reference
+                    }
+                )
             except ValueError:
                 pass
 
-    def merge_inline_content(
-        parent: html.HtmlElement, content_list: List[Tuple[str, str]]
-    ):
+    def merge_inline_content(parent: html.HtmlElement, content_list: list[tuple[str, str]]):
         """Merge inline content."""
         last_inserted = None
         for item_type, item in content_list:
@@ -375,8 +415,7 @@ def extract_paragraphs(
 
 
 def remove_xml_declaration(html_string):
-    """
-    Remove XML declaration and HTML comments from HTML string.
+    """Remove XML declaration and HTML comments from HTML string.
 
     Args:
         html_string: HTML string to process
@@ -393,8 +432,7 @@ def remove_xml_declaration(html_string):
 
 
 def post_process_html(html_content: str) -> str:
-    """
-    Post-process simplified HTML.
+    """Post-process simplified HTML.
 
     Removes HTML comments and normalizes whitespace outside tags
     while preserving line breaks within tag text.
@@ -422,16 +460,13 @@ def post_process_html(html_content: str) -> str:
         return match.group(0)  # Default: return entire match
 
     # Use regex to match all tag content and non-tag content
-    html_content = re.sub(
-        r'(<[^>]+>)|([^<]+)', replace_outside_tag_space, html_content
-    )
+    html_content = re.sub(r'(<[^>]+>)|([^<]+)', replace_outside_tag_space, html_content)
 
     return html_content.strip()
 
 
 def remove_tags(dom):
-    """
-    Remove specific tags from DOM.
+    """Remove specific tags from DOM.
 
     Removes all tags specified in tags_to_remove from the DOM tree.
 
@@ -439,15 +474,14 @@ def remove_tags(dom):
         dom: HTML element to process
     """
     for tag in tags_to_remove:
-        for node in dom.xpath(f'.//{tag}'):
+        for node in dom.xpath(f".//{tag}"):
             parent = node.getparent()
             if parent is not None:
                 parent.remove(node)
 
 
 def is_meaningful_content(element) -> bool:
-    """
-    Strictly determine if an element contains meaningful content.
+    """Strictly determine if an element contains meaningful content.
 
     Checks if the element has text content, valid image src, or meaningful children.
 
@@ -471,8 +505,7 @@ def is_meaningful_content(element) -> bool:
 
 
 def clean_attributes(element):
-    """
-    Clean element attributes.
+    """Clean element attributes.
 
     For images: preserves valid src (excluding base64), alt, class, and id.
     For other elements: preserves only class and id.
@@ -518,8 +551,7 @@ def clean_attributes(element):
 
 
 def remove_inline_tags(element):
-    """
-    Recursively remove all specified inline tags (including nested cases).
+    """Recursively remove all specified inline tags (including nested cases).
 
     Preserves img, br, and other EXCLUDED_TAGS tags.
 
@@ -537,9 +569,7 @@ def remove_inline_tags(element):
             return
 
         # Check if element contains tags to preserve (e.g., img, br)
-        has_excluded_tags = any(
-            child.tag in EXCLUDED_TAGS for child in element.iterdescendants()
-        )
+        has_excluded_tags = any(child.tag in EXCLUDED_TAGS for child in element.iterdescendants())
 
         # If it contains tags to preserve, don't remove current element
         if has_excluded_tags:
@@ -573,9 +603,7 @@ def remove_inline_tags(element):
             elif element_index == 0:  # If no children and is first child
                 parent.text = (parent.text or '') + trailing_text
             else:  # If no children and not first child
-                prev_sibling = (
-                    parent[element_index - 1] if element_index > 0 else None
-                )
+                prev_sibling = parent[element_index - 1] if element_index > 0 else None
                 if prev_sibling is not None:
                     prev_sibling.tail = (prev_sibling.tail or '') + trailing_text
                 else:
@@ -586,8 +614,7 @@ def remove_inline_tags(element):
 
 
 def simplify_list(element):
-    """
-    Simplify list elements, keeping only the first and last groups.
+    """Simplify list elements, keeping only the first and last groups.
 
     For dl lists, preserves complete dt + all dd pairs.
 
@@ -647,8 +674,7 @@ def simplify_list(element):
 
 
 def should_remove_element(element) -> bool:
-    """
-    Determine if element's class or id attributes match patterns to remove.
+    """Determine if element's class or id attributes match patterns to remove.
 
     Args:
         element: HTML element to check
@@ -692,8 +718,7 @@ def should_remove_element(element) -> bool:
 
 
 def remove_specific_elements(element):
-    """
-    Remove elements whose class or id names match specific patterns.
+    """Remove elements whose class or id names match specific patterns.
 
     Recursively processes children first, then removes the element if it matches.
 
@@ -710,8 +735,7 @@ def remove_specific_elements(element):
 
 
 def truncate_text_content(element, max_length=500):
-    """
-    Recursively process text content of element and its children.
+    """Recursively process text content of element and its children.
 
     Truncates when total length exceeds max_length while keeping tag structure intact.
 
@@ -763,10 +787,9 @@ def truncate_text_content(element, max_length=500):
 
 
 def process_paragraphs(
-    paragraphs: List[Dict[str, str]], uid_map: Dict[str, html.HtmlElement]
-) -> Tuple[str, html.HtmlElement]:
-    """
-    Process paragraphs and add _item_id attributes.
+    paragraphs: list[dict[str, str]], uid_map: dict[str, html.HtmlElement]
+) -> tuple[str, html.HtmlElement]:
+    """Process paragraphs and add _item_id attributes.
 
     Adds _item_id to both simplified HTML and corresponding elements in original DOM.
 
@@ -782,9 +805,7 @@ def process_paragraphs(
 
     for para in paragraphs:
         try:
-            html_content = re.sub(
-                r'<!--.*?-->', '', para['html'], flags=re.DOTALL
-            )
+            html_content = re.sub(r'<!--.*?-->', '', para['html'], flags=re.DOTALL)
             # Parse paragraph HTML
             root = html.fromstring(html_content)
             root_for_xpath = copy.deepcopy(root)
@@ -807,21 +828,16 @@ def process_paragraphs(
             root.set('_item_id', current_id)
 
             # For non-block elements (inline_elements, unwrapped_text, mixed)
-            original_parent = (
-                para['_original_element']
-            )  # Parent node of direct child elements in original webpage
+            original_parent = para['_original_element']  # Parent node of direct child elements in original webpage
             if content_type != 'block_element':
                 if original_parent is not None:
                     # root_for_xpath has child elements
                     if len(root_for_xpath) > 0:
                         if (
                             root_for_xpath.tag in inline_tags
-                            and uid_map.get(root_for_xpath.get('data-uid')).tag
-                            != 'body'
+                            and uid_map.get(root_for_xpath.get('data-uid')).tag != 'body'
                         ):
-                            original_element = uid_map.get(
-                                root_for_xpath.get('data-uid')
-                            )
+                            original_element = uid_map.get(root_for_xpath.get('data-uid'))
                             original_element.set('_item_id', current_id)
                         else:
                             # Collect child elements that need to be wrapped
@@ -848,9 +864,7 @@ def process_paragraphs(
 
                                 # Process leading text
                                 leading_text = (
-                                    original_parent.text
-                                    if start_idx == 0
-                                    else original_parent[start_idx - 1].tail
+                                    original_parent.text if start_idx == 0 else original_parent[start_idx - 1].tail
                                 )
 
                                 # Process trailing text
@@ -882,9 +896,7 @@ def process_paragraphs(
                                 #     last_child.tail = None
                     else:
                         if content_type == 'inline_elements':
-                            original_element = uid_map.get(
-                                root_for_xpath.get('data-uid')
-                            )
+                            original_element = uid_map.get(root_for_xpath.get('data-uid'))
                             original_element.set('_item_id', current_id)
                         else:
                             # root_for_xpath only has text content
@@ -893,11 +905,7 @@ def process_paragraphs(
                                 found = False
 
                                 # Check parent node's text
-                                if (
-                                    original_parent.text
-                                    and original_parent.text.strip()
-                                    == root_for_xpath.text.strip()
-                                ):
+                                if original_parent.text and original_parent.text.strip() == root_for_xpath.text.strip():
                                     # Create wrapper
                                     wrapper = etree.Element(tail_block_tag)
                                     wrapper.set('_item_id', current_id)
@@ -917,15 +925,9 @@ def process_paragraphs(
                                 # Check child node's tail
                                 if not found:
                                     for child in original_parent.iterchildren():
-                                        if (
-                                            child.tail
-                                            and child.tail.strip()
-                                            == root_for_xpath.text.strip()
-                                        ):
+                                        if child.tail and child.tail.strip() == root_for_xpath.text.strip():
                                             # Create wrapper
-                                            wrapper = etree.Element(
-                                                tail_block_tag
-                                            )
+                                            wrapper = etree.Element(tail_block_tag)
                                             wrapper.set('_item_id', current_id)
                                             wrapper.text = child.tail
 
@@ -944,17 +946,13 @@ def process_paragraphs(
                 original_parent.set('_item_id', current_id)
                 for child in original_parent.iterdescendants():
                     if child.get('cc-select') is not None:
-                        original_parent.set(
-                            'cc-select', child.get('cc-select')
-                        )
+                        original_parent.set('cc-select', child.get('cc-select'))
                         break
 
             item_id += 1
 
             # Save processing result
-            cleaned_html = etree.tostring(
-                root, method='html', encoding='unicode'
-            ).strip()
+            cleaned_html = etree.tostring(root, method='html', encoding='unicode').strip()
             result.append(
                 {
                     'html': cleaned_html,
@@ -970,17 +968,14 @@ def process_paragraphs(
 
     # Assemble final HTML
     simplified_html = (
-        '<html><head><meta charset="utf-8"></head><body>'
-        + ''.join(p['html'] for p in result)
-        + '</body></html>'
+        '<html><head><meta charset="utf-8"></head><body>' + ''.join(p['html'] for p in result) + '</body></html>'
     )
 
     return post_process_html(simplified_html)
 
 
-def simplify_html(html_str: str) -> Tuple[str, str]:
-    """
-    Simplify HTML structure and add item IDs.
+def simplify_html(html_str: str) -> tuple[str, str]:
+    """Simplify HTML structure and add item IDs.
 
     Processes HTML to create a simplified version for main content extraction,
     while preserving the original HTML with item ID markers.
@@ -1012,16 +1007,12 @@ def simplify_html(html_str: str) -> Tuple[str, str]:
     remove_specific_elements(processing_dom)
 
     # Extract paragraphs (will record original element references)
-    paragraphs = extract_paragraphs(
-        processing_dom, original_uid_map, include_parents=False
-    )
+    paragraphs = extract_paragraphs(processing_dom, original_uid_map, include_parents=False)
 
     # Process paragraphs (synchronously add IDs)
     simplified_html = process_paragraphs(paragraphs, original_uid_map)
 
     remove_all_uids(original_dom)
-    original_html = etree.tostring(
-        original_dom, pretty_print=True, method='html', encoding='unicode'
-    )
+    original_html = etree.tostring(original_dom, pretty_print=True, method='html', encoding='unicode')
 
     return simplified_html, original_html

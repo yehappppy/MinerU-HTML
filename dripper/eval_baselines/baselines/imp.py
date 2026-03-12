@@ -1,10 +1,10 @@
-"""
-Baseline extractor implementations for HTML content extraction.
+"""Baseline extractor implementations for HTML content extraction.
 
 This module provides various extractor implementations for benchmarking,
 including implementations based on popular libraries like trafilatura,
 readability, magic-html, and custom Dripper extractors.
 """
+
 import asyncio
 import re
 from abc import ABC, abstractmethod
@@ -15,6 +15,7 @@ import html_text
 class HTML2TextWrapper:
     def __init__(self):
         import html2text
+
         self.converter = html2text.HTML2Text(bodywidth=0)
         self.converter.ignore_links = True
         self.converter.ignore_images = True
@@ -33,6 +34,7 @@ def html_to_text_func(html_str: str, url: str, format: str) -> str:
         html_str (str): the html string
         url (str, optional): the url of the html string. Defaults to "".
         format (str, optional): the format of the text string. Defaults to "MD".
+
     Returns:
         content (str): the text string
     """
@@ -40,21 +42,18 @@ def html_to_text_func(html_str: str, url: str, format: str) -> str:
         instance = HTML2TextWrapper()
         return instance(html_str, url)
     else:
-
         return html_text.extract_text(html_str)
 
 
 class BaseExtractor(ABC):
-    """
-    Base class for HTML content extractors.
+    """Base class for HTML content extractors.
 
     Defines the interface that all extractors must implement for extracting
     main HTML and main content from HTML pages.
     """
 
     def __init__(self, name: str):
-        """
-        Initialize BaseExtractor.
+        """Initialize BaseExtractor.
 
         Args:
             name: Name identifier for this extractor
@@ -63,8 +62,7 @@ class BaseExtractor(ABC):
 
     @abstractmethod
     def extract_main_html(self, input_html: str, url: str) -> str:
-        """
-        Extract main HTML content from input HTML.
+        """Extract main HTML content from input HTML.
 
         Args:
             input_html: Raw HTML string
@@ -77,8 +75,7 @@ class BaseExtractor(ABC):
 
     @abstractmethod
     def extract(self, input_html: str, url: str) -> tuple[str, str]:
-        """
-        Extract both main HTML and main content.
+        """Extract both main HTML and main content.
 
         Args:
             input_html: Raw HTML string
@@ -89,11 +86,8 @@ class BaseExtractor(ABC):
         """
         pass
 
-    def extract_main_html_batch(
-        self, input_list: list[tuple[str, str]]
-    ) -> list[str]:
-        """
-        Extract main HTML for a batch of inputs.
+    def extract_main_html_batch(self, input_list: list[tuple[str, str]]) -> list[str]:
+        """Extract main HTML for a batch of inputs.
 
         Args:
             input_list: List of (input_html, url) tuples
@@ -109,11 +103,8 @@ class BaseExtractor(ABC):
                 result_list.append('')
         return result_list
 
-    def extract_batch(
-        self, input_list: list[tuple[str, str]]
-    ) -> list[tuple[str, str]]:
-        """
-        Extract main HTML and content for a batch of inputs.
+    def extract_batch(self, input_list: list[tuple[str, str]]) -> list[tuple[str, str]]:
+        """Extract main HTML and content for a batch of inputs.
 
         Args:
             input_list: List of (input_html, url) tuples
@@ -131,16 +122,14 @@ class BaseExtractor(ABC):
 
 
 class MainHTMLExtractor(BaseExtractor):
-    """
-    Base class for extractors that extract main HTML first.
+    """Base class for extractors that extract main HTML first.
 
     These extractors first extract main HTML, then convert it to text content
     using a specified format (MD or TEXT).
     """
 
     def __init__(self, name: str):
-        """
-        Initialize MainHTMLExtractor.
+        """Initialize MainHTMLExtractor.
 
         Args:
             name: Name identifier for this extractor
@@ -150,8 +139,7 @@ class MainHTMLExtractor(BaseExtractor):
         self.set_format()
 
     def set_format(self):
-        """
-        Set the output format for text conversion.
+        """Set the output format for text conversion.
 
         Must be implemented by subclasses to set self.format to 'MD' or 'TEXT'.
 
@@ -161,8 +149,7 @@ class MainHTMLExtractor(BaseExtractor):
         raise NotImplementedError
 
     def extract(self, input_html: str, url: str) -> tuple[str, str]:
-        """
-        Extract main HTML and convert to text content.
+        """Extract main HTML and convert to text content.
 
         Args:
             input_html: Raw HTML string
@@ -178,11 +165,8 @@ class MainHTMLExtractor(BaseExtractor):
             main_content = ''
         return main_html, main_content
 
-    def extract_batch(
-        self, input_list: list[tuple[str, str]]
-    ) -> list[tuple[str, str]]:
-        """
-        Extract main HTML and content for a batch of inputs.
+    def extract_batch(self, input_list: list[tuple[str, str]]) -> list[tuple[str, str]]:
+        """Extract main HTML and content for a batch of inputs.
 
         Args:
             input_list: List of (input_html, url) tuples
@@ -205,15 +189,13 @@ class MainHTMLExtractor(BaseExtractor):
 
 
 class MainContentExtractor(BaseExtractor):
-    """
-    Base class for extractors that extract main content directly.
+    """Base class for extractors that extract main content directly.
 
     These extractors extract text content directly without intermediate HTML.
     """
 
     def extract_main_html(self, input_html: str, url: str) -> str:
-        """
-        Extract main HTML (returns empty string for content-only extractors).
+        """Extract main HTML (returns empty string for content-only extractors).
 
         Args:
             input_html: Raw HTML string
@@ -224,11 +206,8 @@ class MainContentExtractor(BaseExtractor):
         """
         return ''
 
-    def extract_main_html_batch(
-        self, input_list: list[tuple[str, str]]
-    ) -> list[str]:
-        """
-        Extract main HTML for a batch (returns empty strings).
+    def extract_main_html_batch(self, input_list: list[tuple[str, str]]) -> list[str]:
+        """Extract main HTML for a batch (returns empty strings).
 
         Args:
             input_list: List of (input_html, url) tuples
@@ -240,15 +219,13 @@ class MainContentExtractor(BaseExtractor):
 
 
 class BoilerPy3HTMLExtractor(MainHTMLExtractor):
-    """
-    HTML extractor using boilerpy3 library.
+    """HTML extractor using boilerpy3 library.
 
     Extracts main HTML content using boilerpy3's ArticleExtractor.
     """
 
     def __init__(self, name: str):
-        """
-        Initialize BoilerPy3HTMLExtractor.
+        """Initialize BoilerPy3HTMLExtractor.
 
         Args:
             name: Name identifier for this extractor
@@ -259,8 +236,7 @@ class BoilerPy3HTMLExtractor(MainHTMLExtractor):
         self.extractor = extractors.ArticleExtractor(raise_on_failure=False)
 
     def extract_main_html(self, input_html: str, url: str) -> str:
-        """
-        Extract main HTML using boilerpy3.
+        """Extract main HTML using boilerpy3.
 
         Args:
             input_html: Raw HTML string
@@ -289,15 +265,13 @@ class BoilerPy3_HTML_Text_Extractor(BoilerPy3HTMLExtractor):
 
 
 class BoilerPy3TextExtractor(MainContentExtractor):
-    """
-    Text extractor using boilerpy3 library.
+    """Text extractor using boilerpy3 library.
 
     Extracts plain text content directly using boilerpy3's ArticleExtractor.
     """
 
     def __init__(self, name: str):
-        """
-        Initialize BoilerPy3TextExtractor.
+        """Initialize BoilerPy3TextExtractor.
 
         Args:
             name: Name identifier for this extractor
@@ -308,8 +282,7 @@ class BoilerPy3TextExtractor(MainContentExtractor):
         self.extractor = extractors.ArticleExtractor(raise_on_failure=False)
 
     def extract(self, input_html: str, url: str) -> tuple[str, str]:
-        """
-        Extract plain text content using boilerpy3.
+        """Extract plain text content using boilerpy3.
 
         Args:
             input_html: Raw HTML string
@@ -323,15 +296,13 @@ class BoilerPy3TextExtractor(MainContentExtractor):
 
 
 class NewsPleaseExtractor(MainContentExtractor):
-    """
-    Text extractor using newsplease library.
+    """Text extractor using newsplease library.
 
     Extracts main text content from news articles using newsplease.
     """
 
     def __init__(self, name: str):
-        """
-        Initialize NewsPleaseExtractor.
+        """Initialize NewsPleaseExtractor.
 
         Args:
             name: Name identifier for this extractor
@@ -339,8 +310,7 @@ class NewsPleaseExtractor(MainContentExtractor):
         super().__init__(name)
 
     def extract(self, input_html: str, url: str) -> tuple[str, str]:
-        """
-        Extract main text using newsplease.
+        """Extract main text using newsplease.
 
         Args:
             input_html: Raw HTML string
@@ -352,9 +322,7 @@ class NewsPleaseExtractor(MainContentExtractor):
         from newsplease import NewsPlease
 
         try:
-            result = NewsPlease.from_html(
-                input_html, url, fetch_images=False
-            ).maintext
+            result = NewsPlease.from_html(input_html, url, fetch_images=False).maintext
             if result is None:
                 result = ''
             return '', result
@@ -363,15 +331,13 @@ class NewsPleaseExtractor(MainContentExtractor):
 
 
 class MagicHTML_Extractor(MainHTMLExtractor):
-    """
-    HTML extractor using magic-html library (ArticleExtractor).
+    """HTML extractor using magic-html library (ArticleExtractor).
 
     Extracts main HTML content from articles using magic-html's ArticleExtractor.
     """
 
     def __init__(self, name: str):
-        """
-        Initialize MagicHTML_Extractor.
+        """Initialize MagicHTML_Extractor.
 
         Args:
             name: Name identifier for this extractor
@@ -382,8 +348,7 @@ class MagicHTML_Extractor(MainHTMLExtractor):
         self.extractor = ArticleExtractor()
 
     def extract_main_html(self, input_html: str, url: str) -> str:
-        """
-        Extract main HTML using magic-html ArticleExtractor.
+        """Extract main HTML using magic-html ArticleExtractor.
 
         Args:
             input_html: Raw HTML string
@@ -413,15 +378,13 @@ class MagicHTML_Text_Extractor(MagicHTML_Extractor):
 
 
 class MagicForumHTML_Extractor(MainHTMLExtractor):
-    """
-    HTML extractor using magic-html library (ForumExtractor).
+    """HTML extractor using magic-html library (ForumExtractor).
 
     Extracts main HTML content from forum pages using magic-html's ForumExtractor.
     """
 
     def __init__(self, name: str):
-        """
-        Initialize MagicForumHTML_Extractor.
+        """Initialize MagicForumHTML_Extractor.
 
         Args:
             name: Name identifier for this extractor
@@ -432,8 +395,7 @@ class MagicForumHTML_Extractor(MainHTMLExtractor):
         self.extractor = ForumExtractor()
 
     def extract_main_html(self, input_html: str, url: str) -> str:
-        """
-        Extract main HTML using magic-html ForumExtractor.
+        """Extract main HTML using magic-html ForumExtractor.
 
         Args:
             input_html: Raw HTML string
@@ -463,15 +425,13 @@ class MagicForumHTML_Text_Extractor(MagicForumHTML_Extractor):
 
 
 class TrafilaturaExtractor(MainHTMLExtractor):
-    """
-    HTML extractor using trafilatura library.
+    """HTML extractor using trafilatura library.
 
     Extracts main HTML content using trafilatura with HTML output format.
     """
 
     def __init__(self, name: str):
-        """
-        Initialize TrafilaturaExtractor.
+        """Initialize TrafilaturaExtractor.
 
         Args:
             name: Name identifier for this extractor
@@ -482,8 +442,7 @@ class TrafilaturaExtractor(MainHTMLExtractor):
         self.options = Extractor(output_format='html')
 
     def extract_main_html(self, input_html, url) -> str:
-        """
-        Extract main HTML using trafilatura.
+        """Extract main HTML using trafilatura.
 
         Args:
             input_html: Raw HTML string
@@ -515,15 +474,13 @@ class Trafilatura_HTML_Text_Extractor(TrafilaturaExtractor):
 
 
 class Trafilatura_Text_Extractor(MainContentExtractor):
-    """
-    Text extractor using trafilatura library.
+    """Text extractor using trafilatura library.
 
     Extracts plain text content directly using trafilatura with text output format.
     """
 
     def __init__(self, name: str):
-        """
-        Initialize Trafilatura_Text_Extractor.
+        """Initialize Trafilatura_Text_Extractor.
 
         Args:
             name: Name identifier for this extractor
@@ -534,8 +491,7 @@ class Trafilatura_Text_Extractor(MainContentExtractor):
         self.options = Extractor(output_format='txt')
 
     def extract(self, input_html: str, url: str) -> tuple[str, str]:
-        """
-        Extract plain text using trafilatura.
+        """Extract plain text using trafilatura.
 
         Args:
             input_html: Raw HTML string
@@ -553,15 +509,13 @@ class Trafilatura_Text_Extractor(MainContentExtractor):
 
 
 class Trafilatura_MD_Extractor(MainContentExtractor):
-    """
-    Markdown extractor using trafilatura library.
+    """Markdown extractor using trafilatura library.
 
     Extracts content as Markdown directly using trafilatura with markdown output format.
     """
 
     def __init__(self, name: str):
-        """
-        Initialize Trafilatura_MD_Extractor.
+        """Initialize Trafilatura_MD_Extractor.
 
         Args:
             name: Name identifier for this extractor
@@ -572,8 +526,7 @@ class Trafilatura_MD_Extractor(MainContentExtractor):
         self.options = Extractor(output_format='markdown')
 
     def extract(self, input_html: str, url: str) -> tuple[str, str]:
-        """
-        Extract Markdown content using trafilatura.
+        """Extract Markdown content using trafilatura.
 
         Args:
             input_html: Raw HTML string
@@ -591,15 +544,13 @@ class Trafilatura_MD_Extractor(MainContentExtractor):
 
 
 class ResiliparseTextExtractor(MainContentExtractor):
-    """
-    Text extractor using resiliparse library.
+    """Text extractor using resiliparse library.
 
     Extracts plain text content directly using resiliparse's html2text extractor.
     """
 
     def __init__(self, name: str):
-        """
-        Initialize ResiliparseTextExtractor.
+        """Initialize ResiliparseTextExtractor.
 
         Args:
             name: Name identifier for this extractor
@@ -610,8 +561,7 @@ class ResiliparseTextExtractor(MainContentExtractor):
         self._extract = extract_plain_text
 
     def extract(self, input_html: str, url: str) -> tuple[str, str]:
-        """
-        Extract plain text using resiliparse.
+        """Extract plain text using resiliparse.
 
         Args:
             input_html: Raw HTML string
@@ -630,15 +580,13 @@ class ResiliparseTextExtractor(MainContentExtractor):
 
 
 class ReadabilityExtractor(MainHTMLExtractor):
-    """
-    HTML extractor using readability library.
+    """HTML extractor using readability library.
 
     Extracts main HTML content using readability's Document class.
     """
 
     def __init__(self, name: str):
-        """
-        Initialize ReadabilityExtractor.
+        """Initialize ReadabilityExtractor.
 
         Args:
             name: Name identifier for this extractor
@@ -649,8 +597,7 @@ class ReadabilityExtractor(MainHTMLExtractor):
         self.extractor = Document
 
     def extract_main_html(self, input_html: str, url: str) -> str:
-        """
-        Extract main HTML using readability.
+        """Extract main HTML using readability.
 
         Args:
             input_html: Raw HTML string
@@ -680,15 +627,13 @@ class Readability_HTML_Text_Extractor(ReadabilityExtractor):
 
 
 class ReadabiliPyExtractor(MainHTMLExtractor):
-    """
-    HTML extractor using readabilipy library.
+    """HTML extractor using readabilipy library.
 
     Extracts main HTML content using readabilipy's simple_tree_from_html_string.
     """
 
     def __init__(self, name: str):
-        """
-        Initialize ReadabiliPyExtractor.
+        """Initialize ReadabiliPyExtractor.
 
         Args:
             name: Name identifier for this extractor
@@ -696,8 +641,7 @@ class ReadabiliPyExtractor(MainHTMLExtractor):
         super().__init__(name)
 
     def extract_main_html(self, input_html, url):
-        """
-        Extract main HTML using readabilipy.
+        """Extract main HTML using readabilipy.
 
         Args:
             input_html: Raw HTML string
@@ -729,16 +673,14 @@ class ReadabiliPy_HTML_Text_Extractor(ReadabiliPyExtractor):
 
 
 class HTML2TextExtractor(MainHTMLExtractor):
-    """
-    HTML extractor that passes through HTML unchanged.
+    """HTML extractor that passes through HTML unchanged.
 
     This extractor returns the input HTML as-is, then converts it to text
     using the specified format (MD or TEXT).
     """
 
     def __init__(self, name: str):
-        """
-        Initialize HTML2TextExtractor.
+        """Initialize HTML2TextExtractor.
 
         Args:
             name: Name identifier for this extractor
@@ -746,8 +688,7 @@ class HTML2TextExtractor(MainHTMLExtractor):
         super().__init__(name)
 
     def extract_main_html(self, input_html, url):
-        """
-        Return input HTML unchanged.
+        """Return input HTML unchanged.
 
         Args:
             input_html: Raw HTML string
@@ -776,15 +717,13 @@ class HTML2Text_Text_Extractor(HTML2TextExtractor):
 
 
 class JusttextExtractor(MainContentExtractor):
-    """
-    Text extractor using justext library.
+    """Text extractor using justext library.
 
     Extracts plain text content by removing boilerplate using justext.
     """
 
     def extract(self, input_html: str, url: str) -> tuple[str, str]:
-        """
-        Extract plain text using justext.
+        """Extract plain text using justext.
 
         Args:
             input_html: Raw HTML string
@@ -795,28 +734,20 @@ class JusttextExtractor(MainContentExtractor):
         """
         import justext
 
-        paragraphs = justext.justext(
-            input_html, justext.get_stoplist('English')
-        )
-        valid = [
-            paragraph.text
-            for paragraph in paragraphs
-            if not paragraph.is_boilerplate
-        ]
+        paragraphs = justext.justext(input_html, justext.get_stoplist('English'))
+        valid = [paragraph.text for paragraph in paragraphs if not paragraph.is_boilerplate]
 
         return '', ' '.join(valid)
 
 
 class Goose3Extractor(MainContentExtractor):
-    """
-    Text extractor using goose3 library.
+    """Text extractor using goose3 library.
 
     Extracts plain text content using goose3's article extractor.
     """
 
     def extract(self, input_html: str, url: str) -> tuple[str, str]:
-        """
-        Extract plain text using goose3.
+        """Extract plain text using goose3.
 
         Args:
             input_html: Raw HTML string
@@ -832,15 +763,13 @@ class Goose3Extractor(MainContentExtractor):
 
 
 class GNE_Text_Extractor(MainContentExtractor):
-    """
-    Text extractor using GNE (General News Extractor) library.
+    """Text extractor using GNE (General News Extractor) library.
 
     Extracts plain text content directly using GNE's GeneralNewsExtractor.
     """
 
     def __init__(self, name: str):
-        """
-        Initialize GNE_Text_Extractor.
+        """Initialize GNE_Text_Extractor.
 
         Args:
             name: Name identifier for this extractor
@@ -851,8 +780,7 @@ class GNE_Text_Extractor(MainContentExtractor):
         self.extractor = GeneralNewsExtractor()
 
     def extract(self, input_html: str, url: str) -> tuple[str, str]:
-        """
-        Extract plain text using GNE.
+        """Extract plain text using GNE.
 
         Args:
             input_html: Raw HTML string
@@ -866,15 +794,13 @@ class GNE_Text_Extractor(MainContentExtractor):
 
 
 class GNE_HTML_Extractor(MainHTMLExtractor):
-    """
-    HTML extractor using GNE (General News Extractor) library.
+    """HTML extractor using GNE (General News Extractor) library.
 
     Extracts main HTML content using GNE's GeneralNewsExtractor with body HTML.
     """
 
     def __init__(self, name: str):
-        """
-        Initialize GNE_HTML_Extractor.
+        """Initialize GNE_HTML_Extractor.
 
         Args:
             name: Name identifier for this extractor
@@ -885,8 +811,7 @@ class GNE_HTML_Extractor(MainHTMLExtractor):
         self.extractor = GeneralNewsExtractor()
 
     def extract_main_html(self, input_html: str, url: str) -> str:
-        """
-        Extract main HTML using GNE.
+        """Extract main HTML using GNE.
 
         Args:
             input_html: Raw HTML string
@@ -895,9 +820,7 @@ class GNE_HTML_Extractor(MainHTMLExtractor):
         Returns:
             Extracted body HTML
         """
-        main_html = self.extractor.extract(
-            input_html, with_body_html=True
-        )['body_html']
+        main_html = self.extractor.extract(input_html, with_body_html=True)['body_html']
         return main_html
 
 
@@ -918,15 +841,13 @@ class GNE_HTML_Text_Extractor(GNE_HTML_Extractor):
 
 
 class Crawl4aiHTMLExtractor(MainHTMLExtractor):
-    """
-    HTML extractor using crawl4ai library.
+    """HTML extractor using crawl4ai library.
 
     Extracts main HTML content using crawl4ai's AsyncWebCrawler.
     """
 
     def __init__(self, name: str):
-        """
-        Initialize Crawl4aiHTMLExtractor.
+        """Initialize Crawl4aiHTMLExtractor.
 
         Args:
             name: Name identifier for this extractor
@@ -938,8 +859,7 @@ class Crawl4aiHTMLExtractor(MainHTMLExtractor):
         self.config = CrawlerRunConfig(cache_mode=CacheMode.BYPASS)
 
     async def _extract_main_html(self, input_html: str, url: str) -> str:
-        """
-        Async method to extract main HTML using crawl4ai.
+        """Async method to extract main HTML using crawl4ai.
 
         Args:
             input_html: Raw HTML string
@@ -949,17 +869,14 @@ class Crawl4aiHTMLExtractor(MainHTMLExtractor):
             Extracted HTML string
         """
         async with self.crawler as crawler:
-            result = await crawler.arun(
-                url='raw:' + input_html, config=self.config
-            )
+            result = await crawler.arun(url='raw:' + input_html, config=self.config)
             if isinstance(result.html, str):
                 return result.html
             else:
                 return ''
 
     def extract_main_html(self, input_html: str, url: str) -> str:
-        """
-        Extract main HTML using crawl4ai (synchronous wrapper).
+        """Extract main HTML using crawl4ai (synchronous wrapper).
 
         Args:
             input_html: Raw HTML string
@@ -970,9 +887,7 @@ class Crawl4aiHTMLExtractor(MainHTMLExtractor):
         """
         # Get event loop and wait for the async result
         loop = asyncio.get_event_loop()
-        result = loop.run_until_complete(
-            self._extract_main_html(input_html, url)
-        )
+        result = loop.run_until_complete(self._extract_main_html(input_html, url))
         return result
 
 
@@ -993,15 +908,13 @@ class Crawl4ai_HTML_Text_Extractor(Crawl4aiHTMLExtractor):
 
 
 class Crawl4ai_Text_Extractor(MainContentExtractor):
-    """
-    Text extractor using crawl4ai library.
+    """Text extractor using crawl4ai library.
 
     Extracts Markdown content directly using crawl4ai's AsyncWebCrawler.
     """
 
     def __init__(self, name: str):
-        """
-        Initialize Crawl4ai_Text_Extractor.
+        """Initialize Crawl4ai_Text_Extractor.
 
         Args:
             name: Name identifier for this extractor
@@ -1013,8 +926,7 @@ class Crawl4ai_Text_Extractor(MainContentExtractor):
         self.config = CrawlerRunConfig(cache_mode=CacheMode.BYPASS)
 
     async def _extract_text(self, input_html: str, url: str) -> str:
-        """
-        Async method to extract text using crawl4ai.
+        """Async method to extract text using crawl4ai.
 
         Args:
             input_html: Raw HTML string
@@ -1024,14 +936,11 @@ class Crawl4ai_Text_Extractor(MainContentExtractor):
             Extracted Markdown content
         """
         async with self.crawler as crawler:
-            result = await crawler.arun(
-                url='raw:' + input_html, config=self.config
-            )
+            result = await crawler.arun(url='raw:' + input_html, config=self.config)
             return result.markdown
 
     def extract(self, input_html: str, url: str) -> tuple[str, str]:
-        """
-        Extract text using crawl4ai (synchronous wrapper).
+        """Extract text using crawl4ai (synchronous wrapper).
 
         Args:
             input_html: Raw HTML string
@@ -1046,15 +955,13 @@ class Crawl4ai_Text_Extractor(MainContentExtractor):
 
 
 class DripperHTMLExtractor(MainHTMLExtractor):
-    """
-    HTML extractor using Dripper library.
+    """HTML extractor using Dripper library.
 
     Extracts main HTML content using the custom Dripper extraction system.
     """
 
     def __init__(self, name: str, config: dict):
-        """
-        Initialize DripperHTMLExtractor.
+        """Initialize DripperHTMLExtractor.
 
         Args:
             name: Name identifier for this extractor
@@ -1066,8 +973,7 @@ class DripperHTMLExtractor(MainHTMLExtractor):
         self.extractor = Dripper(config)
 
     def extract_main_html(self, input_html: str, url: str) -> str:
-        """
-        Extract main HTML using Dripper.
+        """Extract main HTML using Dripper.
 
         Args:
             input_html: Raw HTML string
@@ -1082,11 +988,8 @@ class DripperHTMLExtractor(MainHTMLExtractor):
             main_html = ''
         return main_html
 
-    def extract_main_html_batch(
-        self, input_list: list[tuple[str, str]]
-    ) -> list[str]:
-        """
-        Extract main HTML for a batch of inputs using Dripper.
+    def extract_main_html_batch(self, input_list: list[tuple[str, str]]) -> list[str]:
+        """Extract main HTML for a batch of inputs using Dripper.
 
         Args:
             input_list: List of (input_html, url) tuples
@@ -1094,9 +997,7 @@ class DripperHTMLExtractor(MainHTMLExtractor):
         Returns:
             List of extracted main HTML strings (empty string on error)
         """
-        dripper_output_list = self.extractor.process(
-            [input_html for input_html, _ in input_list]
-        )
+        dripper_output_list = self.extractor.process([input_html for input_html, _ in input_list])
         result_list = []
         for dripper_output in dripper_output_list:
             if dripper_output.main_html is not None:
@@ -1123,15 +1024,13 @@ class Dripper_HTML_Text_Extractor(DripperHTMLExtractor):
 
 
 class DripperHTMLFallbackExtractor(DripperHTMLExtractor):
-    """
-    HTML extractor using Dripper library with fallback enabled.
+    """HTML extractor using Dripper library with fallback enabled.
 
     Extracts main HTML content using Dripper with fallback mechanism enabled.
     """
 
     def __init__(self, name: str, config: dict):
-        """
-        Initialize DripperHTMLFallbackExtractor.
+        """Initialize DripperHTMLFallbackExtractor.
 
         Args:
             name: Name identifier for this extractor
@@ -1169,8 +1068,7 @@ SVG_PATTERN = r'(<svg[^>]*>)(.*?)(<\/svg>)'
 
 
 def replace_svg(html: str, new_content: str = 'this is a placeholder') -> str:
-    """
-    Replace SVG content with a placeholder.
+    """Replace SVG content with a placeholder.
 
     Args:
         html: HTML string containing SVG elements
@@ -1181,15 +1079,14 @@ def replace_svg(html: str, new_content: str = 'this is a placeholder') -> str:
     """
     return re.sub(
         SVG_PATTERN,
-        lambda match: f'{match.group(1)}{new_content}{match.group(3)}',
+        lambda match: f"{match.group(1)}{new_content}{match.group(3)}",
         html,
         flags=re.DOTALL,
     )
 
 
 def replace_base64_images(html: str, new_image_src: str = '#') -> str:
-    """
-    Replace base64-encoded images with a placeholder src.
+    """Replace base64-encoded images with a placeholder src.
 
     Args:
         html: HTML string containing base64 images
@@ -1201,11 +1098,8 @@ def replace_base64_images(html: str, new_image_src: str = '#') -> str:
     return re.sub(BASE64_IMG_PATTERN, f'<img src="{new_image_src}"/>', html)
 
 
-def clean_html(
-    html: str, clean_svg: bool = False, clean_base64: bool = False
-) -> str:
-    """
-    Clean HTML by removing scripts, styles, meta tags, comments, and links.
+def clean_html(html: str, clean_svg: bool = False, clean_base64: bool = False) -> str:
+    """Clean HTML by removing scripts, styles, meta tags, comments, and links.
 
     Optionally can also clean SVG content and base64 images.
 
@@ -1217,21 +1111,11 @@ def clean_html(
     Returns:
         Cleaned HTML string
     """
-    html = re.sub(
-        SCRIPT_PATTERN, '', html, flags=re.IGNORECASE | re.MULTILINE | re.DOTALL
-    )
-    html = re.sub(
-        STYLE_PATTERN, '', html, flags=re.IGNORECASE | re.MULTILINE | re.DOTALL
-    )
-    html = re.sub(
-        META_PATTERN, '', html, flags=re.IGNORECASE | re.MULTILINE | re.DOTALL
-    )
-    html = re.sub(
-        COMMENT_PATTERN, '', html, flags=re.IGNORECASE | re.MULTILINE | re.DOTALL
-    )
-    html = re.sub(
-        LINK_PATTERN, '', html, flags=re.IGNORECASE | re.MULTILINE | re.DOTALL
-    )
+    html = re.sub(SCRIPT_PATTERN, '', html, flags=re.IGNORECASE | re.MULTILINE | re.DOTALL)
+    html = re.sub(STYLE_PATTERN, '', html, flags=re.IGNORECASE | re.MULTILINE | re.DOTALL)
+    html = re.sub(META_PATTERN, '', html, flags=re.IGNORECASE | re.MULTILINE | re.DOTALL)
+    html = re.sub(COMMENT_PATTERN, '', html, flags=re.IGNORECASE | re.MULTILINE | re.DOTALL)
+    html = re.sub(LINK_PATTERN, '', html, flags=re.IGNORECASE | re.MULTILINE | re.DOTALL)
 
     if clean_svg:
         html = replace_svg(html)
@@ -1240,11 +1124,8 @@ def clean_html(
     return html
 
 
-def create_prompt(
-    text: str, tokenizer=None, instruction: str = None, schema: str = None
-) -> str:
-    """
-    Create a prompt for the LLM with optional instruction and JSON schema.
+def create_prompt(text: str, tokenizer=None, instruction: str = None, schema: str = None) -> str:
+    """Create a prompt for the LLM with optional instruction and JSON schema.
 
     Args:
         text: HTML text to include in the prompt
@@ -1256,21 +1137,14 @@ def create_prompt(
         Formatted prompt string with chat template applied
     """
     if not instruction:
-        instruction = (
-            'Extract the main content from the given HTML and convert it to '
-            'Markdown format.'
-        )
+        instruction = 'Extract the main content from the given HTML and convert it to Markdown format.'
     if schema:
         instruction = (
-            'Extract the specified information from a list of news threads and '
-            'present it in a structured JSON format.'
+            'Extract the specified information from a list of news threads and present it in a structured JSON format.'
         )
-        prompt = (
-            f'{instruction}\n```html\n{text}\n```\n'
-            f'The JSON schema is as follows:```json\n{schema}\n```'
-        )
+        prompt = f"{instruction}\n```html\n{text}\n```\nThe JSON schema is as follows:```json\n{schema}\n```"
     else:
-        prompt = f'{instruction}\n```html\n{text}\n```'
+        prompt = f"{instruction}\n```html\n{text}\n```"
 
     messages = [
         {
@@ -1279,22 +1153,18 @@ def create_prompt(
         }
     ]
 
-    return tokenizer.apply_chat_template(
-        messages, tokenize=False, add_generation_prompt=True
-    )
+    return tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
 
 
 class ReaderLMExtractor(MainContentExtractor):
-    """
-    Text extractor using ReaderLM (LLM-based extraction).
+    """Text extractor using ReaderLM (LLM-based extraction).
 
     Uses a language model to extract main content from HTML by generating
     Markdown-formatted content. Includes HTML cleaning and prompt generation.
     """
 
     def __init__(self, name: str, config: dict):
-        """
-        Initialize ReaderLMExtractor.
+        """Initialize ReaderLMExtractor.
 
         Args:
             name: Name identifier for this extractor
@@ -1302,40 +1172,47 @@ class ReaderLMExtractor(MainContentExtractor):
         """
         self.name = name
         self.model_path = config.get('model_path')
-        from vllm import SamplingParams
-
-        self.sampling_params = SamplingParams(
-            temperature=0,
-            top_k=1,
-            presence_penalty=1.13,
-            repetition_penalty=0.25,
-            max_tokens=8192,
-            frequency_penalty=0.25,
-        )
         self.max_model_len = 256000
         self.llm = None
         self.tokenizer = None
 
+        try:
+            from vllm import SamplingParams
+
+            self.sampling_params = SamplingParams(
+                temperature=0,
+                top_k=1,
+                presence_penalty=1.13,
+                repetition_penalty=0.25,
+                max_tokens=8192,
+                frequency_penalty=0.25,
+            )
+        except Exception:
+            pass
+
     def get_llm(self):
-        """
-        Get or initialize the LLM instance (lazy loading).
+        """Get or initialize the LLM instance (lazy loading).
 
         Returns:
             Initialized vLLM LLM instance
         """
         if self.llm is None:
-            from vllm import LLM
+            try:
+                from vllm import LLM
 
-            self.llm = LLM(
-                model=self.model_path,
-                max_model_len=self.max_model_len,
-                dtype='float16',
-            )
+                self.llm = LLM(
+                    model=self.model_path,
+                    max_model_len=self.max_model_len,
+                    dtype='float16',
+                )
+            except Exception as e:
+                from dripper.utils import logger
+
+                logger.warning(f"vllm not installed: {e}")
         return self.llm
 
     def get_tokenizer(self):
-        """
-        Get or initialize the tokenizer instance (lazy loading).
+        """Get or initialize the tokenizer instance (lazy loading).
 
         Returns:
             Initialized AutoTokenizer instance
@@ -1343,14 +1220,11 @@ class ReaderLMExtractor(MainContentExtractor):
         if self.tokenizer is None:
             from transformers import AutoTokenizer
 
-            self.tokenizer = AutoTokenizer.from_pretrained(
-                self.model_path, use_fast=True
-            )
+            self.tokenizer = AutoTokenizer.from_pretrained(self.model_path, use_fast=True)
         return self.tokenizer
 
     def preprocess(self, html: str) -> str:
-        """
-        Preprocess HTML and create LLM prompt.
+        """Preprocess HTML and create LLM prompt.
 
         Cleans HTML (removes scripts, styles, SVG, base64 images) and creates
         a formatted prompt for the LLM.
@@ -1368,8 +1242,7 @@ class ReaderLMExtractor(MainContentExtractor):
         return prompt
 
     def postprocess(self, response: str) -> str:
-        """
-        Postprocess LLM response.
+        """Postprocess LLM response.
 
         Args:
             response: Raw response string from LLM
@@ -1380,8 +1253,7 @@ class ReaderLMExtractor(MainContentExtractor):
         return response.strip()
 
     def extract(self, html: str, url: str) -> str:
-        """
-        Extract main content using ReaderLM.
+        """Extract main content using ReaderLM.
 
         Args:
             html: Raw HTML string
@@ -1391,17 +1263,11 @@ class ReaderLMExtractor(MainContentExtractor):
             Extracted main content as text (Markdown format)
         """
         prompt = self.preprocess(html)
-        result = (
-            self.get_llm()
-            .generate(prompt, sampling_params=self.sampling_params)[0]
-            .outputs[0]
-            .text
-        )
+        result = self.get_llm().generate(prompt, sampling_params=self.sampling_params)[0].outputs[0].text
         return self.postprocess(result)
 
     def check_valid(self, prompt: str) -> bool:
-        """
-        Check if prompt length is within model limits.
+        """Check if prompt length is within model limits.
 
         Args:
             prompt: Prompt string to validate
@@ -1413,11 +1279,8 @@ class ReaderLMExtractor(MainContentExtractor):
         tokens = tokenizer.encode(prompt, add_special_tokens=True)
         return len(tokens) < self.max_model_len
 
-    def extract_batch(
-        self, input_list: list[tuple[str, str]]
-    ) -> list[tuple[str, str]]:
-        """
-        Extract main content for a batch of inputs using ReaderLM.
+    def extract_batch(self, input_list: list[tuple[str, str]]) -> list[tuple[str, str]]:
+        """Extract main content for a batch of inputs using ReaderLM.
 
         Filters out prompts that exceed model length limits before processing.
 
@@ -1427,29 +1290,20 @@ class ReaderLMExtractor(MainContentExtractor):
         Returns:
             List of (empty string, extracted content) tuples
         """
-        prompts = [
-            (idx, self.preprocess(html))
-            for idx, (html, url) in enumerate(input_list)
-        ]
+        prompts = [(idx, self.preprocess(html)) for idx, (html, url) in enumerate(input_list)]
 
         # Filter out prompts that exceed model length
         valid_prompts = [item for item in prompts if self.check_valid(item[1])]
 
-        results = self.get_llm().generate(
-            [p[1] for p in valid_prompts], sampling_params=self.sampling_params
-        )
+        results = self.get_llm().generate([p[1] for p in valid_prompts], sampling_params=self.sampling_params)
         # Map results back to original indices
-        result_map = {
-            item[0]: self.postprocess(result.outputs[0].text)
-            for item, result in zip(valid_prompts, results)
-        }
+        result_map = {item[0]: self.postprocess(result.outputs[0].text) for item, result in zip(valid_prompts, results)}
 
         return [('', result_map.get(i, '')) for i in range(len(prompts))]
 
 
 class ExtractorFactory:
-    """
-    Factory class for creating extractor instances.
+    """Factory class for creating extractor instances.
 
     Provides a centralized way to create extractor instances by name,
     handling configuration for extractors that require it.
@@ -1457,8 +1311,7 @@ class ExtractorFactory:
 
     @staticmethod
     def create_extractor(name: str, config: dict = None) -> BaseExtractor:
-        """
-        Create an extractor instance by name.
+        """Create an extractor instance by name.
 
         Args:
             name: Name of the extractor to create (e.g., 'dripper-md', 'trafilatura-html-text')
@@ -1506,7 +1359,7 @@ class ExtractorFactory:
             'crawl4ai-text': Crawl4ai_Text_Extractor,
         }
         if name not in mapping:
-            raise ValueError(f'Unknown extractor name: {name}')
+            raise ValueError(f"Unknown extractor name: {name}")
         cls = mapping[name]
         # Extractors that require config: pass config, others ignore it
         if cls in {

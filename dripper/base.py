@@ -1,13 +1,12 @@
-"""
-Base data structures and utilities for Dripper HTML extraction.
+"""Base data structures and utilities for Dripper HTML extraction.
 
 This module defines core data classes and helper functions used throughout
 the Dripper system for processing HTML content and managing extraction data.
 """
 
 import re
+from collections.abc import Callable
 from enum import Enum
-from typing import Callable, Union
 
 # HTML attribute and tag constants used for item identification and selection
 ITEM_ID_ATTR = '_item_id'  # Attribute name for item IDs
@@ -24,8 +23,7 @@ class TagType(Enum):
 
 
 def check_and_find_max_item_id(input_str: str) -> int:
-    """
-    Find and validate the maximum item ID in a string.
+    """Find and validate the maximum item ID in a string.
 
     Extracts all item IDs from the input string using the ITEM_ID_ATTR pattern,
     validates that they form a continuous sequence starting from 1, and returns
@@ -55,7 +53,7 @@ def check_and_find_max_item_id(input_str: str) -> int:
         try:
             int_list.append(int(match))
         except Exception:
-            raise ValueError(f'error while convert match {match} to int')
+            raise ValueError(f"error while convert match {match} to int")
 
     # Validate that IDs form a continuous sequence starting from 1
     target_value = 1
@@ -64,7 +62,7 @@ def check_and_find_max_item_id(input_str: str) -> int:
             target_value += 1
         else:
             raise ValueError(
-                f'mistake find in int list, current target value is {target_value}, but find {int_id}'
+                f"mistake find in int list, current target value is {target_value}, but find {int_id}"
                 + '\n'
                 + input_str
             )
@@ -74,8 +72,7 @@ def check_and_find_max_item_id(input_str: str) -> int:
 
 
 class DripperGenerateInput:
-    """
-    Input data structure for LLM generation requests.
+    """Input data structure for LLM generation requests.
 
     Contains the algorithm-processed HTML, the full prompt (either as a string
     or generated from a callable), and optional case identification.
@@ -85,11 +82,10 @@ class DripperGenerateInput:
     def __init__(
         self,
         alg_html: str,
-        prompt: Union[Callable[[str], str], str],
+        prompt: Callable[[str], str] | str,
         case_id: str = None,
     ):
-        """
-        Initialize DripperGenerateInput.
+        """Initialize DripperGenerateInput.
 
         Args:
             alg_html: Algorithm-processed HTML string
@@ -107,7 +103,7 @@ class DripperGenerateInput:
         elif isinstance(prompt, str):
             self.full_prompt = prompt
         else:
-            raise ValueError(f'Unsupported prompt type: {type(prompt)}')
+            raise ValueError(f"Unsupported prompt type: {type(prompt)}")
 
         self.case_id = case_id
         # Extract and validate maximum item ID from HTML
@@ -115,8 +111,7 @@ class DripperGenerateInput:
 
     @classmethod
     def from_dict(cls, data: dict) -> 'DripperGenerateInput':
-        """
-        Create DripperGenerateInput from a dictionary.
+        """Create DripperGenerateInput from a dictionary.
 
         Args:
             data: Dictionary containing 'alg_html', 'full_prompt', and optionally 'case_id'
@@ -131,8 +126,7 @@ class DripperGenerateInput:
         )
 
     def to_dict(self) -> dict:
-        """
-        Convert DripperGenerateInput to a dictionary.
+        """Convert DripperGenerateInput to a dictionary.
 
         Returns:
             Dictionary representation of the input data
@@ -146,15 +140,13 @@ class DripperGenerateInput:
 
 
 class DripperGenerateOutput:
-    """
-    Output data structure for LLM generation responses.
+    """Output data structure for LLM generation responses.
 
     Contains the raw response from the LLM and optional case identification.
     """
 
     def __init__(self, response: str, case_id: str = None):
-        """
-        Initialize DripperGenerateOutput.
+        """Initialize DripperGenerateOutput.
 
         Args:
             response: Raw response string from the LLM
@@ -165,8 +157,7 @@ class DripperGenerateOutput:
 
     @classmethod
     def from_dict(cls, data: dict) -> 'DripperGenerateOutput':
-        """
-        Create DripperGenerateOutput from a dictionary.
+        """Create DripperGenerateOutput from a dictionary.
 
         Args:
             data: Dictionary containing 'response' and optionally 'case_id'
@@ -180,8 +171,7 @@ class DripperGenerateOutput:
         )
 
     def to_dict(self) -> dict:
-        """
-        Convert DripperGenerateOutput to a dictionary.
+        """Convert DripperGenerateOutput to a dictionary.
 
         Returns:
             Dictionary representation of the output data
@@ -194,18 +184,14 @@ class DripperGenerateOutput:
 
 
 class DripperProcessData:
-    """
-    Data structure for intermediate processing results.
+    """Data structure for intermediate processing results.
 
     Contains the raw HTML, simplified HTML, and mapped HTML at different
     stages of the extraction pipeline.
     """
 
-    def __init__(
-        self, raw_html: str, simpled_html: str, map_html: str, case_id: str = None
-    ):
-        """
-        Initialize DripperProcessData.
+    def __init__(self, raw_html: str, simpled_html: str, map_html: str, case_id: str = None):
+        """Initialize DripperProcessData.
 
         Args:
             raw_html: Original raw HTML content
@@ -220,8 +206,7 @@ class DripperProcessData:
 
     @classmethod
     def from_dict(cls, data: dict) -> 'DripperProcessData':
-        """
-        Create DripperProcessData from a dictionary.
+        """Create DripperProcessData from a dictionary.
 
         Args:
             data: Dictionary containing 'raw_html', 'simpled_html', 'map_html',
@@ -238,8 +223,7 @@ class DripperProcessData:
         )
 
     def to_dict(self) -> dict:
-        """
-        Convert DripperProcessData to a dictionary.
+        """Convert DripperProcessData to a dictionary.
 
         Returns:
             Dictionary representation of the processing data
@@ -254,15 +238,13 @@ class DripperProcessData:
 
 
 class DripperInput:
-    """
-    Input data structure for the Dripper extraction API.
+    """Input data structure for the Dripper extraction API.
 
     Contains the raw HTML to be processed, optional URL, and optional case ID.
     """
 
     def __init__(self, raw_html: str, url: str = None, case_id: str = None):
-        """
-        Initialize DripperInput.
+        """Initialize DripperInput.
 
         Args:
             raw_html: Raw HTML content to extract main content from
@@ -275,8 +257,7 @@ class DripperInput:
 
     @classmethod
     def from_dict(cls, data: dict) -> 'DripperInput':
-        """
-        Create DripperInput from a dictionary.
+        """Create DripperInput from a dictionary.
 
         Args:
             data: Dictionary containing 'raw_html' and optionally 'url' and 'case_id'
@@ -291,8 +272,7 @@ class DripperInput:
         )
 
     def to_dict(self) -> dict:
-        """
-        Convert DripperInput to a dictionary.
+        """Convert DripperInput to a dictionary.
 
         Returns:
             Dictionary representation of the input data
@@ -307,15 +287,13 @@ class DripperInput:
 
 
 class DripperOutput:
-    """
-    Output data structure for the Dripper extraction API.
+    """Output data structure for the Dripper extraction API.
 
     Contains the extracted main HTML content and optional case ID.
     """
 
     def __init__(self, main_html: str, case_id: str = None):
-        """
-        Initialize DripperOutput.
+        """Initialize DripperOutput.
 
         Args:
             main_html: Extracted main HTML content
@@ -326,8 +304,7 @@ class DripperOutput:
 
     @classmethod
     def from_dict(cls, data: dict) -> 'DripperOutput':
-        """
-        Create DripperOutput from a dictionary.
+        """Create DripperOutput from a dictionary.
 
         Args:
             data: Dictionary containing 'main_html' and optionally 'case_id'
@@ -341,8 +318,7 @@ class DripperOutput:
         )
 
     def to_dict(self) -> dict:
-        """
-        Convert DripperOutput to a dictionary.
+        """Convert DripperOutput to a dictionary.
 
         Returns:
             Dictionary representation of the output data

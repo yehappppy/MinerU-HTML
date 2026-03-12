@@ -1,0 +1,83 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dripper"
+version = "1.2.1"
+description = "HTML main content extractor based on large language models"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.12"
+authors = [
+    { name = "OpenDataLab" }
+]
+keywords = ["html", "extraction", "llm", "nlp", "content-extraction"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+dependencies = [
+    "beautifulsoup4",
+    "fastapi",
+    "html2text",
+    "html_text",
+    "httpx",
+    "jieba",
+    "loguru",
+    "lxml",
+    "openai",
+    "pandas",
+    "pydantic>=2.0",
+    "ray",
+    "rouge_score",
+    "trafilatura",
+    "transformers",
+]
+
+[project.optional-dependencies]
+vllm = ['vllm==0.11.1; platform_system == "Linux"']
+
+[project.urls]
+Homepage = "https://github.com/yehappppy/MinerU-HTML"
+Repository = "https://github.com/yehappppy/MinerU-HTML"
+Issues = "https://github.com/yehappppy/MinerU-HTML/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["dripper*"]
+
+[tool.setuptools.package-data]
+dripper = ["py.typed"]
+
+[tool.black]
+line-length = 100
+target-version = ["py310"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+
+extend-select = [
+  "UP",  # pyupgrade
+  "D",   # pydocstyle
+  "I", # import
+  "ANN001",
+  "ANN201",
+  "ANN202",
+]
+ignore = [
+    "D100",
+    "D104"
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"

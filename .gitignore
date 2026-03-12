@@ -1,0 +1,21 @@
+__pycache__/
+*.ipynb
+.DS_Store
+*.c
+*.so
+*.tar
+*.tar.gz
+*.conf
+
+# artifacts
+log/
+cache/*
+!cache/magic-pdf.json
+output
+dataset/pdf_tmp
+
+build/*
+dist/*
+
+dripper.egg-info
+.vscode

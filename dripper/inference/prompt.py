@@ -1,5 +1,4 @@
-"""
-Prompt generation utilities for LLM inference.
+"""Prompt generation utilities for LLM inference.
 
 This module provides functions to generate prompts for LLM-based HTML
 content classification tasks.
@@ -10,8 +9,7 @@ from dripper.exceptions import DripperPromptError
 
 
 def get_full_prompt(html_str: str) -> str:
-    """
-    Generate full prompt for LLM-based HTML content classification.
+    """Generate full prompt for LLM-based HTML content classification.
 
     Creates a comprehensive prompt that instructs the LLM to classify HTML
     elements with item IDs as either "main" (primary content) or "other"
@@ -73,5 +71,5 @@ Input HTML:
 Output format should be a JSON-formatted string representing a dictionary where keys are item_id strings and values are either 'main' or 'other'. Make sure to include ALL item_ids from the input HTML./no_think
 """
     except Exception as e:
-        raise DripperPromptError(f'Error in get_full_prompt: {e}')
+        raise DripperPromptError(f"Error in get_full_prompt: {e}")
     return prompt

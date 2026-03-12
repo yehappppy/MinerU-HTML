@@ -1,5 +1,4 @@
-"""
-FastAPI server for Dripper HTML extraction service.
+"""FastAPI server for Dripper HTML extraction service.
 
 This module provides a REST API server that accepts HTML content and returns
 extracted main HTML using the Dripper extraction engine.
@@ -7,44 +6,32 @@ extracted main HTML using the Dripper extraction engine.
 
 import argparse
 import json
-import logging
 import os
-from typing import Any, Dict
+from typing import Any
 
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 from dripper.api import Dripper
-
-# -------------- Logging Configuration --------------
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s | %(levelname)s | %(message)s',
-)
-logger = logging.getLogger('dripper_server')
+from dripper.utils import logger
 
 # -------------- Command Line Arguments --------------
-parser = argparse.ArgumentParser(
-    description='Dripper HTML extraction server'
-)
+parser = argparse.ArgumentParser(description='Dripper HTML extraction server')
 parser.add_argument(
     '--model_path',
     type=str,
     default=None,
-    help='Path to the LLM model (can also be set via DRIPPER_MODEL_PATH env var)'
+    help='Path to the LLM model (can also be set via DRIPPER_MODEL_PATH env var)',
 )
 parser.add_argument(
     '--state_machine',
     type=str,
     default=None,
-    help='State machine version to use (can also be set via DRIPPER_STATE_MACHINE env var)'
+    help='State machine version to use (can also be set via DRIPPER_STATE_MACHINE env var)',
 )
 parser.add_argument(
-    '--port',
-    type=int,
-    default=7986,
-    help='Port number to run the server on (can also be set via DRIPPER_PORT env var)'
+    '--port', type=int, default=7986, help='Port number to run the server on (can also be set via DRIPPER_PORT env var)'
 )
 args = parser.parse_args()
 
@@ -90,9 +77,8 @@ class ExtractResp(BaseModel):
 
 
 @app.post('/extract', response_model=ExtractResp)
-async def extract_main(req: ExtractReq) -> Dict[str, Any]:
-    """
-    Extract main HTML content from raw HTML.
+async def extract_main(req: ExtractReq) -> dict[str, Any]:
+    """Extract main HTML content from raw HTML.
 
     This is a synchronous single-item endpoint (batch=1) that directly calls
     Dripper.process to extract the main HTML content from the input HTML.
@@ -121,9 +107,8 @@ async def extract_main(req: ExtractReq) -> Dict[str, Any]:
 
 
 @app.get('/health')
-def health() -> Dict[str, str]:
-    """
-    Health check endpoint.
+def health() -> dict[str, str]:
+    """Health check endpoint.
 
     Returns:
         Dictionary with server status

@@ -1,50 +1,32 @@
-"""
-Simplified setup.py - A balanced version with essential improvements.
-"""
+"""Minimal setup.py that reads from pyproject.toml."""
 
 from pathlib import Path
 
-from setuptools import find_packages, setup
+from setuptools import setup
 
+# Read pyproject.toml
+pyproject_path = Path(__file__).parent / 'pyproject.toml'
 
-def read_requirements(file_path: Path) -> list[str]:
-    """
-    Read requirements from a file and return as a list.
+# Parse pyproject.toml to extract metadata
+import tomllib
 
-    Args:
-        file_path: Path to the requirements file
+with open(pyproject_path, 'rb') as f:
+    config = tomllib.load(f)
 
-    Returns:
-        List of requirement strings
-    """
-    if not file_path.exists():
-        return []
-    with open(file_path, 'r', encoding='utf-8') as f:
-        return [
-            line.strip()
-            for line in f
-            if line.strip() and not line.startswith('#')
-        ]
-
-
-# Read main requirements
-requirements_file = Path(__file__).parent / 'requirements.txt'
-install_requires = read_requirements(requirements_file)
-
-# Read baseline requirements (optional dependencies for evaluation)
-baselines_file = Path(__file__).parent / 'baselines.txt'
-baselines_requires = read_requirements(baselines_file)
+project = config['project']
 
 setup(
-    name='dripper',
-    version='1.2.0',
-    description='HTML main content extractor based on large language models',
-    packages=find_packages(include=['dripper*']),
-    include_package_data=True,
-    python_requires='>=3.10',
-    install_requires=install_requires,
-    extras_require={
-        'baselines': baselines_requires,
-    },
-    license='Apache License 2.0',
+    name=project['name'],
+    version=project['version'],
+    description=project['description'],
+    readme=project['readme'],
+    license=project['license'],
+    requires_python=project['requires-python'],
+    authors=project['authors'],
+    keywords=', '.join(project['keywords']),
+    classifiers=project['classifiers'],
+    dependencies=project['dependencies'],
+    extras_require=project.get('optional-dependencies', {}),
+    url=project['urls']['Repository'],
+    project_urls=project['urls'],
 )

@@ -1,17 +1,16 @@
-"""
-HTML utility functions for element conversion.
+"""HTML utility functions for element conversion.
 
 This module provides helper functions to convert between HTML strings
 and lxml HtmlElement objects.
 """
 
 import html
+
 from lxml import html as lxmlhtml
 
 
-def html_to_element(html_str: str) -> lxmlhtml.HtmlElement:
-    """
-    Convert HTML string to lxml HtmlElement.
+def html_to_element(html_str: str | bytes) -> lxmlhtml.HtmlElement:
+    """Convert HTML string to lxml HtmlElement.
 
     Parses HTML string into an lxml HtmlElement tree with optimized parser
     settings for HTML processing.
@@ -32,11 +31,7 @@ def html_to_element(html_str: str) -> lxmlhtml.HtmlElement:
 
     # Convert string to bytes if it contains an encoding declaration
     # This is needed for proper parsing when encoding is specified
-    if isinstance(html_str, str) and (
-        '<?xml' in html_str
-        or '<meta charset' in html_str
-        or 'encoding=' in html_str
-    ):
+    if isinstance(html_str, str) and ('<?xml' in html_str or '<meta charset' in html_str or 'encoding=' in html_str):
         html_str = html_str.encode('utf-8')
 
     root = lxmlhtml.fromstring(html_str, parser=parser)
@@ -44,8 +39,7 @@ def html_to_element(html_str: str) -> lxmlhtml.HtmlElement:
 
 
 def element_to_html(root: lxmlhtml.HtmlElement, pretty_print=False) -> str:
-    """
-    Convert lxml HtmlElement to HTML string.
+    """Convert lxml HtmlElement to HTML string.
 
     Serializes an HtmlElement tree back to an HTML string.
 
@@ -56,15 +50,13 @@ def element_to_html(root: lxmlhtml.HtmlElement, pretty_print=False) -> str:
     Returns:
         HTML string representation of the element tree
     """
-    html_str = lxmlhtml.tostring(
-        root, pretty_print=pretty_print, encoding='utf-8'
-    ).decode()
-    return html_str
+    html_byte = lxmlhtml.tostring(root, pretty_print=pretty_print, encoding='utf-8')
+    if isinstance(html_byte, bytes):
+        return html_byte.decode('utf-8')
 
 
 def element_to_html_unescaped(element: lxmlhtml.HtmlElement) -> str:
-    """
-    Convert lxml HtmlElement to HTML string without escaping.
+    """Convert lxml HtmlElement to HTML string without escaping.
 
     Serializes an lxml HtmlElement tree back to an HTML string without escaping.
 

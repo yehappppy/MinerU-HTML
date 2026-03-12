@@ -1,5 +1,4 @@
-"""
-Logits processing and response parsing utilities.
+"""Logits processing and response parsing utilities.
 
 This module provides functions for building token state machines and parsing
 LLM responses into structured JSON format.
@@ -22,8 +21,7 @@ def build_token_state_machine(
     device: str = 'cuda',
     version: str = 'v1',
 ) -> TokenStateMachine_v1 | TokenStateMachine_v2:
-    """
-    Build a token state machine for structured generation.
+    """Build a token state machine for structured generation.
 
     Creates a TokenStateMachine instance based on the specified version.
     v1 and v2 differ in their initialization logic (v2 includes Think logic).
@@ -45,12 +43,11 @@ def build_token_state_machine(
     elif version == 'v2':
         return TokenStateMachine_v2(max_count, tokenizer, device)
     else:
-        raise DripperLogitsError(f'Invalid version: {version}')
+        raise DripperLogitsError(f"Invalid version: {version}")
 
 
 def find_brace_pair(response: str) -> str:
-    """
-    Extract JSON content by finding the first '{' and last '}' in response.
+    """Extract JSON content by finding the first '{' and last '}' in response.
 
     Attempts to extract a valid JSON object from the response string by
     locating the outermost brace pair.
@@ -77,8 +74,7 @@ def find_brace_pair(response: str) -> str:
 
 
 def parse_json_by_remove_last_chars(response: str) -> dict:
-    """
-    Parse JSON by progressively removing characters from the end.
+    """Parse JSON by progressively removing characters from the end.
 
     Attempts to parse JSON by trying progressively shorter prefixes of the
     response string, appending '}' to each attempt. This handles cases where
@@ -101,14 +97,11 @@ def parse_json_by_remove_last_chars(response: str) -> dict:
         except Exception:
             # If parsing fails, try shorter prefix
             idx -= 1
-    raise DripperResponseParseError(
-        'No valid prefix can be parsed as a json dict'
-    )
+    raise DripperResponseParseError('No valid prefix can be parsed as a json dict')
 
 
 def parse_llm_response(response: str) -> dict:
-    """
-    Parse LLM response into a dictionary.
+    """Parse LLM response into a dictionary.
 
     Attempts to extract and parse JSON from the LLM response using multiple
     strategies:
@@ -135,7 +128,4 @@ def parse_llm_response(response: str) -> dict:
             # If direct parsing fails, try progressive character removal
             return parse_json_by_remove_last_chars(clean_response)
         except Exception:
-            raise DripperResponseParseError(
-                f'Cannot parse JSON response, the raw response is {response}. '
-                f'Error: {e}'
-            )
+            raise DripperResponseParseError(f"Cannot parse JSON response, the raw response is {response}. Error: {e}")

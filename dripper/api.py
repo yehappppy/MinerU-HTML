@@ -1,13 +1,11 @@
-"""
-Main API module for Dripper HTML extraction system.
+"""Main API module for Dripper HTML extraction system.
 
 This module provides the Dripper class, which implements the complete
 HTML content extraction pipeline using large language models.
 """
 
-import logging
 import os
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 from transformers import AutoTokenizer
 
@@ -19,8 +17,8 @@ from dripper.exceptions import (DripperConfigError, DripperEnvError,
                                 DripperPreprocessError,
                                 DripperResponseParseError, DripperTypeError)
 from dripper.inference.imp import (AsyncInferenceBackend,
-                                   AsyncVLLMInferenceBackend,
-                                   InferenceBackend,
+                                   AsyncVLLMInferenceBackend, InferenceBackend,
+                                   SyncVLLMInferenceBackend,
                                    TransformersInferenceBackend,
                                    VLLMInferenceBackend)
 from dripper.inference.inference import generate, generate_async
@@ -28,14 +26,11 @@ from dripper.inference.logits import parse_llm_response
 from dripper.inference.prompt import get_full_prompt
 from dripper.process.map_to_main import extract_main_html
 from dripper.process.simplify_html import simplify_html
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from dripper.utils import logger
 
 
 def check_vllm_environment(state_machine: str) -> None:
-    """
-    Check and ensure VLLM uses v0 API to avoid compatibility issues.
+    """Check and ensure VLLM uses v0 API to avoid compatibility issues.
 
     This function verifies that the VLLM_USE_V1 environment variable is set
     to '0' when state machine is enabled, ensuring compatibility with the
@@ -51,14 +46,12 @@ def check_vllm_environment(state_machine: str) -> None:
         return
     if os.environ.get('VLLM_USE_V1', '') != '0':
         raise DripperEnvError(
-            'VLLM_USE_V1 environment variable is not set to 0.\n'
-            'Please set it using "export VLLM_USE_V1=0"'
+            'VLLM_USE_V1 environment variable is not set to 0.\nPlease set it using "export VLLM_USE_V1=0"'
         )
 
 
 class Dripper:
-    """
-    HTML main content extractor based on large language models.
+    """HTML main content extractor based on large language models.
 
     This class provides a complete HTML content extraction pipeline:
     1. Preprocessing: Simplify HTML structure and generate inference prompts
@@ -77,9 +70,8 @@ class Dripper:
         model_gen_kwargs (dict): Parameters used during model inference. If not provided, default parameters will be used.
     """
 
-    def __init__(self, config: Dict[str, Any]) -> None:
-        """
-        Initialize Dripper instance.
+    def __init__(self, config: dict[str, Any]) -> None:
+        """Initialize Dripper instance.
 
         Args:
             config: Configuration dictionary that must contain 'model_path'
@@ -100,9 +92,9 @@ class Dripper:
         self.model_gen_kwargs = config.get('model_gen_kwargs', {})
 
         # Lazy-loaded attributes (initialized on first use)
-        self._llm: Optional[InferenceBackend] = None
-        self._async_llm: Optional[AsyncInferenceBackend] = None
-        self._tokenizer: Optional[AutoTokenizer] = None
+        self._llm: InferenceBackend | None = None
+        self._async_llm: AsyncInferenceBackend | None = None
+        self._tokenizer: AutoTokenizer | None = None
         self._async_tokenizer = None  # For async_vllm backend
         self._trafilatura_settings = None
         self._trafilatura = None
@@ -113,8 +105,7 @@ class Dripper:
             self.get_trafilatura()
 
     def get_trafilatura(self):
-        """
-        Get trafilatura extractor instance (lazy-loaded).
+        """Get trafilatura extractor instance (lazy-loaded).
 
         Returns:
             Tuple of (trafilatura extractor function, extractor settings)
@@ -122,17 +113,14 @@ class Dripper:
         if self._trafilatura is None:
             from trafilatura.settings import Extractor
 
-            self._trafilatura_settings = Extractor(
-                output_format='html', comments=False
-            )
+            self._trafilatura_settings = Extractor(output_format='html', comments=False)
             from trafilatura import extract
 
             self._trafilatura = extract
         return self._trafilatura, self._trafilatura_settings
 
     def fall_back_func(self, input_html: str, url: str) -> str:
-        """
-        Fallback extraction function using trafilatura.
+        """Fallback extraction function using trafilatura.
 
         Used when the main LLM-based extraction fails or is unavailable.
 
@@ -146,9 +134,8 @@ class Dripper:
         t_extractor, t_settings = self.get_trafilatura()
         return t_extractor(input_html, url=url, options=t_settings)
 
-    def _validate_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Validate configuration parameters.
+    def _validate_config(self, config: dict[str, Any]) -> dict[str, Any]:
+        """Validate configuration parameters.
 
         Args:
             config: Configuration dictionary to validate
@@ -163,9 +150,7 @@ class Dripper:
             raise DripperConfigError('Configuration must be a dictionary')
 
         if 'model_path' not in config:
-            raise DripperConfigError(
-                'Configuration must contain "model_path" parameter'
-            )
+            raise DripperConfigError('Configuration must contain "model_path" parameter')
 
         # Get inference backend
         inference_backend = config.get('inference_backend', 'vllm')
@@ -180,30 +165,34 @@ class Dripper:
             if inference_backend == 'vllm':
                 tp = config.get('model_init_kwargs', {}).get('tensor_parallel_size', 1)
                 if not isinstance(tp, int) or tp < 1:
-                    raise DripperConfigError(
-                        'tp (tensor parallel size) must be a positive integer'
-                    )
+                    raise DripperConfigError('tp (tensor parallel size) must be a positive integer')
         elif inference_backend == 'async_vllm':
             # async_vllm requires api_base in model_init_kwargs
             api_base = config.get('model_init_kwargs', {}).get('api_base')
             if not api_base:
                 raise DripperConfigError(
-                    'api_base is required for async_vllm inference backend. '
-                    'Please set it in model_init_kwargs.'
+                    'api_base is required for async_vllm inference backend. Please set it in model_init_kwargs.'
                 )
             # For async_vllm, model_path can be a placeholder or model name
             logger.info(f"Using async vLLM with API base: {api_base}")
+        elif inference_backend == 'sync_vllm':
+            # sync_vllm requires api_base in model_init_kwargs
+            api_base = config.get('model_init_kwargs', {}).get('api_base')
+            if not api_base:
+                raise DripperConfigError(
+                    'api_base is required for sync_vllm inference backend. Please set it in model_init_kwargs.'
+                )
+            logger.info(f"Using sync vLLM with API base: {api_base}")
         else:
             raise DripperConfigError(
-                f'Unsupported inference backend: {inference_backend}. '
-                f'Available: vllm, transformers, async_vllm'
+                f"Unsupported inference backend: {inference_backend}. "
+                f"Available: vllm, transformers, async_vllm, sync_vllm"
             )
 
         return config.copy()
 
     def get_tokenizer(self) -> AutoTokenizer:
-        """
-        Get tokenizer instance (lazy-loaded).
+        """Get tokenizer instance (lazy-loaded).
 
         Returns:
             AutoTokenizer instance
@@ -213,20 +202,15 @@ class Dripper:
         """
         if self._tokenizer is None:
             try:
-                self._tokenizer = AutoTokenizer.from_pretrained(
-                    self.model_path, use_fast=True
-                )
+                self._tokenizer = AutoTokenizer.from_pretrained(self.model_path, use_fast=True)
             except Exception as e:
-                raise DripperLoadModelError(
-                    f'Tokenizer loading failed: {str(e)}'
-                ) from e
+                raise DripperLoadModelError(f"Tokenizer loading failed: {str(e)}") from e
         return self._tokenizer
 
     def get_async_tokenizer(self):
-        """
-        Get async tokenizer instance (lazy-loaded).
+        """Get async tokenizer instance (lazy-loaded).
 
-        For async_vllm backend, returns a wrapper that uses the remote server's tokenizer.
+        For async_vllm/sync_vllm backends, returns a wrapper that uses the remote server's tokenizer.
 
         Returns:
             Tokenizer wrapper with __call__ method that returns token IDs
@@ -251,6 +235,22 @@ class Dripper:
                         return {'input_ids': token_ids}
 
                 self._async_tokenizer = AsyncTokenizerWrapper(async_llm)
+            elif self.inference_backend == 'sync_vllm':
+                # Get the sync LLM which has tokenize method
+                sync_llm = self.get_llm()
+
+                class SyncTokenizerWrapper:
+                    """Wrapper to provide sync interface for sync tokenizer."""
+
+                    def __init__(self, backend):
+                        self._backend = backend
+
+                    def __call__(self, text: str) -> dict:
+                        """Tokenize text and return dict with input_ids."""
+                        token_ids = self._backend.tokenize(text)
+                        return {'input_ids': token_ids}
+
+                self._async_tokenizer = SyncTokenizerWrapper(sync_llm)
             else:
                 # Fallback to local tokenizer
                 self._async_tokenizer = self.get_tokenizer()
@@ -258,8 +258,7 @@ class Dripper:
         return self._async_tokenizer
 
     def get_llm(self) -> InferenceBackend:
-        """
-        Get LLM instance (lazy-loaded).
+        """Get LLM instance (lazy-loaded).
 
         Returns:
             InferenceBackend instance, the specific type depends on `inference_backend` in init config.
@@ -270,35 +269,40 @@ class Dripper:
         if self._llm is None:
             check_vllm_environment(self.state_machine)
             try:
-                logger.info(f'Loading model: {self.model_path}')
+                logger.info(f"Loading model: {self.model_path}")
                 if self.inference_backend == 'vllm':
                     self._llm = VLLMInferenceBackend(
                         model_path=self.model_path,
                         model_init_kwargs=self.model_init_kwargs,
-                        model_gen_kwargs=self.model_gen_kwargs
+                        model_gen_kwargs=self.model_gen_kwargs,
                     )
                 elif self.inference_backend == 'transformers':
                     self._llm = TransformersInferenceBackend(
                         model_path=self.model_path,
                         tokenizer=self.get_tokenizer(),
                         model_init_kwargs=self.model_init_kwargs,
-                        model_gen_kwargs=self.model_gen_kwargs
+                        model_gen_kwargs=self.model_gen_kwargs,
+                    )
+                elif self.inference_backend == 'sync_vllm':
+                    api_base = self.model_init_kwargs.get('api_base')
+                    api_key = self.model_init_kwargs.get('api_key')
+                    model_name = self.model_init_kwargs.get('model_name', 'default')
+                    self._llm = SyncVLLMInferenceBackend(
+                        api_base=api_base,
+                        api_key=api_key,
+                        model_name=model_name,
+                        model_gen_kwargs=self.model_gen_kwargs,
                     )
                 else:
-                    raise DripperConfigError(
-                        f'Unsupported inference backend: {self.inference_backend}'
-                    )
+                    raise DripperConfigError(f"Unsupported inference backend: {self.inference_backend}")
                 logger.info('Model loading completed')
             except Exception as e:
-                raise DripperLoadModelError(
-                    f'Model loading failed: {str(e)}'
-                ) from e
+                raise DripperLoadModelError(f"Model loading failed: {str(e)}") from e
 
         return self._llm
 
     def get_async_llm(self) -> AsyncInferenceBackend:
-        """
-        Get async LLM instance (lazy-loaded).
+        """Get async LLM instance (lazy-loaded).
 
         This method is used for async inference with remote vLLM server.
         Requires 'async_vllm' inference backend and 'api_base' in model_init_kwargs.
@@ -312,47 +316,35 @@ class Dripper:
         """
         if self._async_llm is None:
             try:
-                logger.info(f'Loading async model: {self.model_path}')
+                logger.info('Loading async model...')
                 if self.inference_backend == 'async_vllm':
                     api_base = self.model_init_kwargs.get('api_base')
+                    api_key = self.model_init_kwargs.get('api_key')
                     if not api_base:
                         raise DripperConfigError(
-                            "api_base is required for async_vllm inference backend. "
-                            "Please set it in model_init_kwargs."
+                            'api_base is required for async_vllm inference backend. Please set it in model_init_kwargs.'
                         )
-                    api_key = self.model_init_kwargs.get('api_key')
-                    if not api_key:
-                        raise DripperConfigError(
-                            "api_key is required for async_vllm inference backend. "
-                            "Please set it in model_init_kwargs."
-                        )
-                    model_name = self.model_init_kwargs.get('model_name', 'MinerU-HTML')
+                    model_name = self.model_init_kwargs.get('model_name', 'default')
                     self._async_llm = AsyncVLLMInferenceBackend(
                         api_base=api_base,
                         api_key=api_key,
                         model_name=model_name,
-                        model_gen_kwargs=self.model_gen_kwargs
+                        model_gen_kwargs=self.model_gen_kwargs,
                     )
                 else:
                     raise DripperConfigError(
-                        f'Async inference requires "async_vllm" backend, '
-                        f'but got "{self.inference_backend}"'
+                        f'Async inference requires "async_vllm" backend, but got "{self.inference_backend}"'
                     )
                 logger.info('Async model loading completed')
             except Exception as e:
                 if isinstance(e, DripperConfigError):
                     raise e
-                raise DripperLoadModelError(
-                    f'Async model loading failed: {str(e)}'
-                ) from e
+                raise DripperLoadModelError(f"Async model loading failed: {str(e)}") from e
 
         return self._async_llm
 
-    def pre_process(
-        self, raw_input: DripperInput
-    ) -> Tuple[DripperGenerateInput, DripperProcessData]:
-        """
-        Preprocess raw input data.
+    def pre_process(self, raw_input: DripperInput) -> tuple[DripperGenerateInput, DripperProcessData]:
+        """Preprocess raw input data.
 
         Simplifies the raw HTML into a format suitable for model processing
         and generates inference prompts.
@@ -373,8 +365,8 @@ class Dripper:
             full_prompt = get_full_prompt(simplified_html)
 
             # Check if prompt length exceeds model's maximum sequence length
-            # Use remote tokenizer for async_vllm, local tokenizer otherwise
-            if self.inference_backend == 'async_vllm':
+            # Use remote tokenizer for async_vllm/sync_vllm, local tokenizer otherwise
+            if self.inference_backend in ('async_vllm', 'sync_vllm'):
                 tokenizer = self.get_async_tokenizer()
             else:
                 tokenizer = self.get_tokenizer()
@@ -382,10 +374,10 @@ class Dripper:
             # Use max_item_id * 8 as approximate length of response
             if prompt_length + max_item_id * 8 >= self.max_sequence_length:
                 raise DripperPreprocessError(
-                    f'Preprocessing failed (case_id: {raw_input.case_id}): '
-                    f'Generated prompt is too long (prompt_length: {prompt_length}, '
-                    f'item_num: {max_item_id}), exceeds model maximum sequence length '
-                    f'{self.max_sequence_length}.'
+                    f"Preprocessing failed (case_id: {raw_input.case_id}): "
+                    f"Generated prompt is too long (prompt_length: {prompt_length}, "
+                    f"item_num: {max_item_id}), exceeds model maximum sequence length "
+                    f"{self.max_sequence_length}."
                 )
 
             # Build generate input
@@ -406,17 +398,14 @@ class Dripper:
             return generate_input, process_data
 
         except Exception as e:
-            raise DripperPreprocessError(
-                f'Preprocessing failed (case_id: {raw_input.case_id}): {str(e)}'
-            ) from e
+            raise DripperPreprocessError(f"Preprocessing failed (case_id: {raw_input.case_id}): {str(e)}") from e
 
     def post_process(
         self,
         generate_output: DripperGenerateOutput,
         pre_process_data: DripperProcessData,
     ) -> DripperOutput:
-        """
-        Postprocess model output.
+        """Postprocess model output.
 
         Parses the model response and extracts the final main HTML content.
 
@@ -434,35 +423,25 @@ class Dripper:
         try:
             # Parse LLM response to get labels
             labels = parse_llm_response(generate_output.response)
-            if not any(
-                label == TagType.Main.value for label in labels.values()
-            ):
-                raise DripperResponseParseError(
-                    f'Model response contains no main content labels, '
-                    f'response: {labels}'
-                )
+            if not any(label == TagType.Main.value for label in labels.values()):
+                raise DripperResponseParseError(f"Model response contains no main content labels, response: {labels}")
             # Extract main HTML content based on labels
             main_html = extract_main_html(pre_process_data.map_html, labels)
 
-            return DripperOutput(
-                main_html=main_html, case_id=pre_process_data.case_id
-            )
+            return DripperOutput(main_html=main_html, case_id=pre_process_data.case_id)
         except DripperResponseParseError as e:
-            logger.error(
-                f'Postprocessing failed (case_id: {pre_process_data.case_id}): {str(e)}'
-            )
+            logger.error(f"Postprocessing failed (case_id: {pre_process_data.case_id}): {str(e)}")
             raise e
         except Exception as e:
             raise DripperPostprocessError(
-                f'Postprocessing failed (case_id: {pre_process_data.case_id}): {str(e)}'
+                f"Postprocessing failed (case_id: {pre_process_data.case_id}): {str(e)}"
             ) from e
 
     def _normalize_input(
         self,
-        input_data: Union[DripperInput, List[DripperInput], str, List[str]],
-    ) -> Dict[int, DripperInput]:
-        """
-        Normalize input data format.
+        input_data: DripperInput | list[DripperInput] | str | list[str],
+    ) -> dict[int, DripperInput]:
+        """Normalize input data format.
 
         Converts various input formats (strings, DripperInput objects, or lists)
         into a standardized dictionary of DripperInput objects.
@@ -484,9 +463,7 @@ class Dripper:
                 elif isinstance(item, DripperInput):
                     result[idx] = item
                 else:
-                    raise DripperTypeError(
-                        f'Unsupported input type: {type(item)}'
-                    )
+                    raise DripperTypeError(f"Unsupported input type: {type(item)}")
             return result
 
         elif isinstance(input_data, str):
@@ -496,16 +473,13 @@ class Dripper:
             return {0: input_data}
 
         else:
-            raise DripperTypeError(
-                f'Unsupported input type: {type(input_data)}'
-            )
+            raise DripperTypeError(f"Unsupported input type: {type(input_data)}")
 
     def process(
         self,
-        input_data: Union[DripperInput, List[DripperInput], str, List[str]],
-    ) -> Union[List[DripperOutput], Tuple]:
-        """
-        Process input and return results.
+        input_data: DripperInput | list[DripperInput] | str | list[str],
+    ) -> list[DripperOutput] | tuple:
+        """Process input and return results.
 
         Complete processing pipeline:
         Input normalization → Preprocessing → Model inference → Postprocessing
@@ -524,7 +498,7 @@ class Dripper:
         try:
             # Normalize input format
             input_map = self._normalize_input(input_data)
-            logger.info(f'Starting to process {len(input_map)} inputs')
+            logger.info(f"Starting to process {len(input_map)} inputs")
 
             # Preprocess all inputs
             generate_inputs = {}
@@ -567,9 +541,7 @@ class Dripper:
                 if idx not in output_map:
                     if self.use_fall_back:
                         try:
-                            output = self.fall_back_func(
-                                input_map[idx].raw_html, input_map[idx].url
-                            )
+                            output = self.fall_back_func(input_map[idx].raw_html, input_map[idx].url)
                             output_map[idx] = DripperOutput(
                                 main_html=output,
                                 case_id=input_map[idx].case_id,
@@ -582,11 +554,9 @@ class Dripper:
                                 case_id=input_map[idx].case_id,
                             )
                     else:
-                        output_map[idx] = DripperOutput(
-                            main_html=None, case_id=input_map[idx].case_id
-                        )
+                        output_map[idx] = DripperOutput(main_html=None, case_id=input_map[idx].case_id)
 
-            logger.info(f'Processing completed, output {len(output_map)} results')
+            logger.info(f"Processing completed, output {len(output_map)} results")
 
             # Return different formats based on debug mode
             if self.debug:
@@ -599,15 +569,14 @@ class Dripper:
                 return output_list
 
         except Exception as e:
-            logger.error(f'Error occurred during processing: {str(e)}')
+            logger.error(f"Error occurred during processing: {str(e)}")
             raise
 
     async def process_async(
         self,
-        input_data: Union[DripperInput, List[DripperInput], str, List[str]],
-    ) -> Union[List[DripperOutput], Tuple]:
-        """
-        Process input asynchronously and return results.
+        input_data: DripperInput | list[DripperInput] | str | list[str],
+    ) -> list[DripperOutput] | tuple:
+        """Process input asynchronously and return results.
 
         Complete async processing pipeline:
         Input normalization → Preprocessing → Async Model inference → Postprocessing
@@ -630,7 +599,7 @@ class Dripper:
         try:
             # Normalize input format
             input_map = self._normalize_input(input_data)
-            logger.info(f'Starting to process {len(input_map)} inputs (async)')
+            logger.info(f"Starting to process {len(input_map)} inputs (async)")
 
             # Preprocess all inputs (sync, but fast)
             generate_inputs = {}
@@ -675,9 +644,7 @@ class Dripper:
                 if idx not in output_map:
                     if self.use_fall_back:
                         try:
-                            output = self.fall_back_func(
-                                input_map[idx].raw_html, input_map[idx].url
-                            )
+                            output = self.fall_back_func(input_map[idx].raw_html, input_map[idx].url)
                             output_map[idx] = DripperOutput(
                                 main_html=output,
                                 case_id=input_map[idx].case_id,
@@ -690,11 +657,9 @@ class Dripper:
                                 case_id=input_map[idx].case_id,
                             )
                     else:
-                        output_map[idx] = DripperOutput(
-                            main_html=None, case_id=input_map[idx].case_id
-                        )
+                        output_map[idx] = DripperOutput(main_html=None, case_id=input_map[idx].case_id)
 
-            logger.info(f'Async processing completed, output {len(output_map)} results')
+            logger.info(f"Async processing completed, output {len(output_map)} results")
 
             # Return different formats based on debug mode
             if self.debug:
@@ -707,5 +672,5 @@ class Dripper:
                 return output_list
 
         except Exception as e:
-            logger.error(f'Error occurred during async processing: {str(e)}')
+            logger.error(f"Error occurred during async processing: {str(e)}")
             raise

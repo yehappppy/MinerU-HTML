@@ -1,23 +1,22 @@
-"""
-Map HTML to main content extraction utilities.
+"""Map HTML to main content extraction utilities.
 
 This module provides functions to extract main content from mapped HTML
 using LLM response labels, removing non-main content elements.
 """
 
-from typing import Callable
+from collections.abc import Callable
 
 from lxml import html
 
 from dripper.base import ITEM_ID_ATTR, TAIL_BLOCK_TAG, TagType
-from dripper.process.html_utils import element_to_html_unescaped, html_to_element
+from dripper.process.html_utils import (element_to_html_unescaped,
+                                        html_to_element)
 
 
 def remove_recursive_by_condition(
     root: html.HtmlElement, remove_condition: Callable[[html.HtmlElement], bool]
 ) -> html.HtmlElement:
-    """
-    Recursively remove elements from DOM based on a condition.
+    """Recursively remove elements from DOM based on a condition.
 
     Removes elements that satisfy the condition, and only processes children
     if the current element was not removed.
@@ -42,8 +41,7 @@ def remove_recursive_by_condition(
 
 
 def extract_main_html(map_html: str, response: dict) -> str:
-    """
-    Extract main content HTML using LLM response labels.
+    """Extract main content HTML using LLM response labels.
 
     Uses the LLM's response to identify which elements should be kept as main
     content, then extracts those elements and their ancestors/descendants from
@@ -82,7 +80,7 @@ def extract_main_html(map_html: str, response: dict) -> str:
     remove_recursive_by_condition(root, lambda x: x not in elements_to_remained)
 
     # Remove tail block tags (unwrap them, keeping their content)
-    for tail_block in root.xpath(f'//{TAIL_BLOCK_TAG}'):
+    for tail_block in root.xpath(f"//{TAIL_BLOCK_TAG}"):
         tail_block.drop_tag()
 
     return element_to_html_unescaped(root)

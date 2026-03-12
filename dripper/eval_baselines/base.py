@@ -1,5 +1,4 @@
-"""
-Baseline evaluation framework for HTML content extraction.
+"""Baseline evaluation framework for HTML content extraction.
 
 This module provides data structures, evaluation functions, and processing
 mappers for running baseline extractor evaluations on benchmark datasets.
@@ -22,8 +21,7 @@ jieba.setLogLevel(jieba.logging.INFO)
 
 
 def calc_rouge_n_score(target_input: str, prediction_input: str, n: int = 5) -> dict:
-    """
-    Calculate the ROUGE-N score between the target and prediction inputs.
+    """Calculate the ROUGE-N score between the target and prediction inputs.
 
     Args:
         target_input (str): The ground truth text.
@@ -56,8 +54,7 @@ def calc_rouge_n_score(target_input: str, prediction_input: str, n: int = 5) -> 
 
 @dataclass
 class BaselineData:
-    """
-    Data structure for a single baseline evaluation case.
+    """Data structure for a single baseline evaluation case.
 
     Contains the raw HTML, ground truth content, difficulty level, and URL
     for a benchmark case.
@@ -71,8 +68,7 @@ class BaselineData:
 
     @classmethod
     def from_dict(cls, data: dict) -> 'BaselineData':
-        """
-        Create BaselineData instance from dictionary.
+        """Create BaselineData instance from dictionary.
 
         Args:
             data: Dictionary containing benchmark data with keys:
@@ -99,8 +95,7 @@ def eval_batch_cases(
     cases_dir_str: str,
     extractor: BaseExtractor,
 ) -> list[dict]:
-    """
-    Evaluate a batch of baseline cases using an extractor.
+    """Evaluate a batch of baseline cases using an extractor.
 
     Extracts main HTML and content for each case, calculates ROUGE scores
     against ground truth, and saves results to individual case directories.
@@ -118,10 +113,7 @@ def eval_batch_cases(
     """
     result_list = []
     # Prepare input list for batch extraction
-    input_list = [
-        (baseline_data.html, baseline_data.url)
-        for baseline_data in baseline_data_list
-    ]
+    input_list = [(baseline_data.html, baseline_data.url) for baseline_data in baseline_data_list]
     extract_result_list = extractor.extract_batch(input_list)
 
     for baseline_data, result in zip(baseline_data_list, extract_result_list):
@@ -137,33 +129,22 @@ def eval_batch_cases(
         # Create case directory and save results
         case_dir_path = Path(cases_dir_str) / track_id
         os.makedirs(case_dir_path, exist_ok=True)
-        (case_dir_path / 'input.html').write_text(
-            input_html, encoding='utf-8'
-        )
-        (case_dir_path / 'gt_main.txt').write_text(
-            convert_main_content, encoding='utf-8'
-        )
-        (case_dir_path / 'pred_main.txt').write_text(
-            main_content, encoding='utf-8'
-        )
+        (case_dir_path / 'input.html').write_text(input_html, encoding='utf-8')
+        (case_dir_path / 'gt_main.txt').write_text(convert_main_content, encoding='utf-8')
+        (case_dir_path / 'pred_main.txt').write_text(main_content, encoding='utf-8')
         (case_dir_path / 'rouge_score.json').write_text(
             json.dumps(rouge_score, ensure_ascii=False, indent=2),
             encoding='utf-8',
         )
         # Save predicted HTML if available
         if main_html:
-            (case_dir_path / 'pred_main.html').write_text(
-                main_html, encoding='utf-8'
-            )
-        result_list.append(
-            {'track_id': track_id, **rouge_score, 'meta.level': level}
-        )
+            (case_dir_path / 'pred_main.html').write_text(main_html, encoding='utf-8')
+        result_list.append({'track_id': track_id, **rouge_score, 'meta.level': level})
     return result_list
 
 
 def build_dataset(bench_path_str: str) -> dict[str, BaselineData]:
-    """
-    Build benchmark dataset from JSONL file.
+    """Build benchmark dataset from JSONL file.
 
     Reads a JSONL file where each line is a JSON object representing a
     benchmark case, and creates a dictionary mapping track_id to BaselineData.
@@ -180,20 +161,19 @@ def build_dataset(bench_path_str: str) -> dict[str, BaselineData]:
     bench_path = Path(bench_path_str)
     bench_data_map = {}
     if bench_path.is_file():
-        with open(bench_path, 'r') as f:
+        with open(bench_path) as f:
             for line in f:
                 data_dict = json.loads(line)
                 data = BaselineData.from_dict(data_dict)
                 bench_data_map[data.track_id] = data
     else:
-        raise ValueError(f'Benchmark path {bench_path} is not a file')
+        raise ValueError(f"Benchmark path {bench_path} is not a file")
 
     return bench_data_map
 
 
 def export_results(results: list, task_dir: str) -> pd.DataFrame:
-    """
-    Export evaluation results to files.
+    """Export evaluation results to files.
 
     Separates successful results from errors, saves errors to JSONL file,
     and exports successful results to CSV file.
@@ -218,10 +198,10 @@ def export_results(results: list, task_dir: str) -> pd.DataFrame:
             # Success case: dictionary format
             result_benchmark_datas.append(result)
         else:
-            raise ValueError(f'Unknown result type: {type(result)}')
+            raise ValueError(f"Unknown result type: {type(result)}")
 
     # Print and save errors
-    print(f'Error tasks: {len(error_list)}')
+    print(f"Error tasks: {len(error_list)}")
     for error in error_list:
         print(error)
     with open(os.path.join(task_dir, 'error.jsonl'), 'w') as f:
@@ -236,8 +216,7 @@ def export_results(results: list, task_dir: str) -> pd.DataFrame:
 
 
 def reduce_results(flat_eval_df: pd.DataFrame, task_dir: str) -> None:
-    """
-    Calculate and save mean evaluation metrics.
+    """Calculate and save mean evaluation metrics.
 
     Computes mean values for all numeric metrics across all cases and
     separately for each difficulty level, then saves to JSON file.
@@ -263,9 +242,7 @@ def reduce_results(flat_eval_df: pd.DataFrame, task_dir: str) -> None:
         level_mean_dict = {}
         for metric in flat_eval_df.columns:
             try:
-                level_mean_dict[metric] = flat_eval_df[
-                    flat_eval_df['meta.level'] == level
-                ][metric].mean()
+                level_mean_dict[metric] = flat_eval_df[flat_eval_df['meta.level'] == level][metric].mean()
             except TypeError:
                 # Skip non-numeric columns
                 pass
@@ -277,8 +254,7 @@ def reduce_results(flat_eval_df: pd.DataFrame, task_dir: str) -> None:
 
 
 class SingleProcessMaper:
-    """
-    Single-process mapper for baseline evaluation.
+    """Single-process mapper for baseline evaluation.
 
     Processes benchmark cases sequentially in a single process without
     parallelization. Suitable for small datasets or debugging.
@@ -291,8 +267,7 @@ class SingleProcessMaper:
         extractor_name: str,
         config: dict,
     ):
-        """
-        Initialize SingleProcessMaper.
+        """Initialize SingleProcessMaper.
 
         Args:
             target_dir: Directory path to save evaluation results
@@ -306,8 +281,7 @@ class SingleProcessMaper:
         self.config = config
 
     def run(self) -> list[list[dict]]:
-        """
-        Run single-process evaluation on all benchmark cases.
+        """Run single-process evaluation on all benchmark cases.
 
         Creates extractor instance and processes each case sequentially,
         saving results to case directories.
@@ -315,24 +289,19 @@ class SingleProcessMaper:
         Returns:
             List of result lists (one list per case, each containing dict results)
         """
-        extractor = ExtractorFactory.create_extractor(
-            self.extractor_name, self.config
-        )
+        extractor = ExtractorFactory.create_extractor(self.extractor_name, self.config)
         cases_dir_str = os.path.join(self.target_dir, 'cases')
         os.makedirs(cases_dir_str, exist_ok=True)
         results = []
         # Process each case individually
         for baseline_data in self.benchmark_dataset.values():
-            result = eval_batch_cases(
-                [baseline_data], cases_dir_str, extractor
-            )
+            result = eval_batch_cases([baseline_data], cases_dir_str, extractor)
             results.append(result)
         return results
 
 
 class RayBatchProcessMaper:
-    """
-    Ray-based batch process mapper for parallel baseline evaluation.
+    """Ray-based batch process mapper for parallel baseline evaluation.
 
     Processes benchmark cases in parallel batches using Ray for distributed
     computing. Supports GPU and CPU resource allocation per batch.
@@ -348,8 +317,7 @@ class RayBatchProcessMaper:
         gpu_num: int,
         cpu_num: int,
     ):
-        """
-        Initialize RayBatchProcessMaper.
+        """Initialize RayBatchProcessMaper.
 
         Args:
             target_dir: Directory path to save evaluation results
@@ -376,8 +344,7 @@ class RayBatchProcessMaper:
         extractor_name: str,
         extractor_config: dict,
     ) -> list[dict]:
-        """
-        Remote function to evaluate a batch of cases (Ray task).
+        """Remote function to evaluate a batch of cases (Ray task).
 
         This method is executed remotely by Ray workers. It creates an extractor
         instance and processes a batch of cases.
@@ -391,16 +358,13 @@ class RayBatchProcessMaper:
         Returns:
             List of evaluation result dictionaries
         """
-        extractor = ExtractorFactory.create_extractor(
-            extractor_name, extractor_config
-        )
+        extractor = ExtractorFactory.create_extractor(extractor_name, extractor_config)
         # Process batch using batch extraction
         results = eval_batch_cases(batch, cases_dir_str, extractor)
         return results
 
     def run(self) -> list[dict]:
-        """
-        Run parallel batch evaluation using Ray.
+        """Run parallel batch evaluation using Ray.
 
         Splits dataset into batches, submits Ray tasks with resource allocation,
         and collects results as tasks complete.
@@ -414,16 +378,12 @@ class RayBatchProcessMaper:
         # Split dataset into batches
         batch_list = [
             list(self.benchmark_dataset.values())[i : i + self.batch_size]
-            for i in range(
-                0, len(self.benchmark_dataset.values()), self.batch_size
-            )
+            for i in range(0, len(self.benchmark_dataset.values()), self.batch_size)
         ]
 
         # Submit Ray tasks with resource allocation
         tasks = [
-            RayBatchProcessMaper.eval_batch.options(
-                num_gpus=self.gpu_num, num_cpus=self.cpu_num
-            ).remote(
+            RayBatchProcessMaper.eval_batch.options(num_gpus=self.gpu_num, num_cpus=self.cpu_num).remote(
                 batch, cases_dir_str, self.extractor_name, self.extractor_config
             )
             for batch in batch_list
@@ -432,15 +392,11 @@ class RayBatchProcessMaper:
         # Wait for tasks to complete
         unfinished_tasks = tasks
         finished_tasks = []
-        print(f'start to process {len(tasks)} batches')
+        print(f"start to process {len(tasks)} batches")
         while len(unfinished_tasks) > 0:
-            ready_tasks, unfinished_tasks = ray.wait(
-                unfinished_tasks, timeout=5
-            )
+            ready_tasks, unfinished_tasks = ray.wait(unfinished_tasks, timeout=5)
             finished_tasks.extend(ready_tasks)
-            print(
-                f'waiting for {len(unfinished_tasks)}/{len(tasks)} batches'
-            )
+            print(f"waiting for {len(unfinished_tasks)}/{len(tasks)} batches")
 
         # Collect results from all finished tasks
         results = []
