@@ -5,9 +5,14 @@ HTML content extraction pipeline using large language models.
 """
 
 import os
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from transformers import AutoTokenizer
+if TYPE_CHECKING:
+    from transformers import AutoTokenizer
+else:
+    from dripper.utils.lazy_import import lazy_from
+
+    AutoTokenizer = lazy_from('transformers', 'AutoTokenizer')
 
 from dripper.base import (DripperGenerateInput, DripperGenerateOutput,
                           DripperInput, DripperOutput, DripperProcessData,
@@ -90,11 +95,13 @@ class Dripper:
         self.inference_backend = config.get('inference_backend', 'vllm')
         self.model_init_kwargs = config.get('model_init_kwargs', {})
         self.model_gen_kwargs = config.get('model_gen_kwargs', {})
+        # Tokenizer config for API-level tokenizer (sync_vllm/async_vllm backends)
+        self.tokenizer_config = config.get('tokenizer_config', {})
 
         # Lazy-loaded attributes (initialized on first use)
         self._llm: InferenceBackend | None = None
         self._async_llm: AsyncInferenceBackend | None = None
-        self._tokenizer: AutoTokenizer | None = None
+        self._tokenizer: 'AutoTokenizer | None' = None
         self._async_tokenizer = None  # For async_vllm backend
         self._trafilatura_settings = None
         self._trafilatura = None
@@ -191,7 +198,7 @@ class Dripper:
 
         return config.copy()
 
-    def get_tokenizer(self) -> AutoTokenizer:
+    def get_tokenizer(self) -> 'AutoTokenizer':
         """Get tokenizer instance (lazy-loaded).
 
         Returns:
@@ -202,6 +209,7 @@ class Dripper:
         """
         if self._tokenizer is None:
             try:
+                # Use module-level lazy imported AutoTokenizer
                 self._tokenizer = AutoTokenizer.from_pretrained(self.model_path, use_fast=True)
             except Exception as e:
                 raise DripperLoadModelError(f"Tokenizer loading failed: {str(e)}") from e
@@ -287,11 +295,16 @@ class Dripper:
                     api_base = self.model_init_kwargs.get('api_base')
                     api_key = self.model_init_kwargs.get('api_key')
                     model_name = self.model_init_kwargs.get('model_name', 'default')
+                    # Tokenizer config: use explicit tokenizer_config or fallback to model_init_kwargs
+                    tokenizer_url = self.tokenizer_config.get('tokenizer_url', api_base)
+                    tokenizer_api_key = self.tokenizer_config.get('tokenizer_api_key', api_key)
                     self._llm = SyncVLLMInferenceBackend(
                         api_base=api_base,
                         api_key=api_key,
                         model_name=model_name,
                         model_gen_kwargs=self.model_gen_kwargs,
+                        tokenizer_url=tokenizer_url,
+                        tokenizer_api_key=tokenizer_api_key,
                     )
                 else:
                     raise DripperConfigError(f"Unsupported inference backend: {self.inference_backend}")
@@ -325,11 +338,16 @@ class Dripper:
                             'api_base is required for async_vllm inference backend. Please set it in model_init_kwargs.'
                         )
                     model_name = self.model_init_kwargs.get('model_name', 'default')
+                    # Tokenizer config: use explicit tokenizer_config or fallback to model_init_kwargs
+                    tokenizer_url = self.tokenizer_config.get('tokenizer_url', api_base)
+                    tokenizer_api_key = self.tokenizer_config.get('tokenizer_api_key', api_key)
                     self._async_llm = AsyncVLLMInferenceBackend(
                         api_base=api_base,
                         api_key=api_key,
                         model_name=model_name,
                         model_gen_kwargs=self.model_gen_kwargs,
+                        tokenizer_url=tokenizer_url,
+                        tokenizer_api_key=tokenizer_api_key,
                     )
                 else:
                     raise DripperConfigError(

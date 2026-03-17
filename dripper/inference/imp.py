@@ -1,9 +1,16 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, override
+from typing import TYPE_CHECKING, Any, override
 
 from openai import AsyncOpenAI, OpenAI
-from transformers import AutoModelForCausalLM, pipeline
+
+if TYPE_CHECKING:
+    from transformers import AutoModelForCausalLM, pipeline
+else:
+    from dripper.utils.lazy_import import lazy_from
+
+    AutoModelForCausalLM = lazy_from('transformers', 'AutoModelForCausalLM')
+    pipeline = lazy_from('transformers', 'pipeline')
 
 
 @dataclass
@@ -122,6 +129,8 @@ class SyncVLLMInferenceBackend(InferenceBackend):
         api_key: str,
         model_name: str,
         model_gen_kwargs: dict[str, Any] = {},
+        tokenizer_url: str | None = None,
+        tokenizer_api_key: str | None = None,
     ):
         """Initialize SyncVLLMInferenceBackend.
 
@@ -129,9 +138,15 @@ class SyncVLLMInferenceBackend(InferenceBackend):
             api_base: Base URL of the vLLM OpenAI API (e.g., "http://localhost:8000")
             model_name: Name of the model served by vLLM
             model_gen_kwargs: Additional generation parameters
+            tokenizer_url: Base URL for tokenization API (defaults to api_base if not provided)
+            tokenizer_api_key: API key for tokenization (defaults to api_key if not provided)
         """
         # Store original base URL for tokenize endpoint
         self._api_base = api_base.rstrip('/')
+
+        # Tokenizer URL and API key - can be different from inference
+        self._tokenizer_url = tokenizer_url.rstrip('/') if tokenizer_url else self._api_base
+        self._tokenizer_api_key = tokenizer_api_key if tokenizer_api_key is not None else api_key
 
         # Ensure base_url ends with /v1 for OpenAI-compatible API
         api_base_v1 = api_base.rstrip('/') + '/v1'
@@ -182,13 +197,17 @@ class SyncVLLMInferenceBackend(InferenceBackend):
 
         try:
             # Use httpx directly since /tokenize is not part of OpenAI API
-            # Use original api_base (without /v1) for vLLM native endpoints
+            # Use tokenizer_url (without /v1) for vLLM native endpoints
+            headers = {}
+            if self._tokenizer_api_key:
+                headers['Authorization'] = f"Bearer {self._tokenizer_api_key}"
             response = httpx.post(
-                f"{self._api_base}/tokenize",
+                f"{self._tokenizer_url}/tokenize",
                 json={
                     'model': self.model_name,
                     'prompt': text,
                 },
+                headers=headers,
                 timeout=30.0,
             )
             response.raise_for_status()
@@ -212,6 +231,8 @@ class AsyncVLLMInferenceBackend(AsyncInferenceBackend):
         api_key: str,
         model_name: str,
         model_gen_kwargs: dict[str, Any] = {},
+        tokenizer_url: str | None = None,
+        tokenizer_api_key: str | None = None,
     ):
         """Initialize AsyncVLLMInferenceBackend.
 
@@ -219,9 +240,15 @@ class AsyncVLLMInferenceBackend(AsyncInferenceBackend):
             api_base: Base URL of the vLLM OpenAI API (e.g., "http://localhost:8000")
             model_name: Name of the model served by vLLM
             model_gen_kwargs: Additional generation parameters
+            tokenizer_url: Base URL for tokenization API (defaults to api_base if not provided)
+            tokenizer_api_key: API key for tokenization (defaults to api_key if not provided)
         """
         # Store original base URL for tokenize endpoint
         self._api_base = api_base.rstrip('/')
+
+        # Tokenizer URL and API key - can be different from inference
+        self._tokenizer_url = tokenizer_url.rstrip('/') if tokenizer_url else self._api_base
+        self._tokenizer_api_key = tokenizer_api_key if tokenizer_api_key is not None else api_key
 
         # Ensure base_url ends with /v1 for OpenAI-compatible API
         api_base_v1 = api_base.rstrip('/') + '/v1'
@@ -274,14 +301,18 @@ class AsyncVLLMInferenceBackend(AsyncInferenceBackend):
 
         try:
             # Use httpx directly since /tokenize is not part of OpenAI API
-            # Use original api_base (without /v1) for vLLM native endpoints
+            # Use tokenizer_url (without /v1) for vLLM native endpoints
+            headers = {}
+            if self._tokenizer_api_key:
+                headers['Authorization'] = f"Bearer {self._tokenizer_api_key}"
             async with httpx.AsyncClient() as client:
                 response = await client.post(
-                    f"{self._api_base}/tokenize",
+                    f"{self._tokenizer_url}/tokenize",
                     json={
                         'model': self.model_name,
                         'prompt': text,
                     },
+                    headers=headers,
                     timeout=30.0,
                 )
                 response.raise_for_status()

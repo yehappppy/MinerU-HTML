@@ -6,11 +6,8 @@ import loguru
 
 
 def get_logger(module_name: str = 'Proto-FPC') -> Any:
+    loguru.logger.remove()
     logger = loguru.logger.bind(task=module_name)
-    try:
-        loguru.logger.remove(0)
-    except ValueError:
-        pass
 
     log_format = f"| <blue>{module_name}</blue> | <green>{{time:YYYY-MM-DD-HH-mm-ss}}</green> | <level>{{level}}</level> | <cyan>{{name}}</cyan> | <level>{{file.path}}:{{line}}</level> | <level>{{message}}</level>"
 

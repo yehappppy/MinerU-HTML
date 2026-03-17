@@ -5,8 +5,14 @@ LLM responses into structured JSON format.
 """
 
 import json
+from typing import TYPE_CHECKING
 
-from transformers import AutoTokenizer
+if TYPE_CHECKING:
+    from transformers import AutoTokenizer
+else:
+    from dripper.utils.lazy_import import lazy_from
+
+    AutoTokenizer = lazy_from('transformers', 'AutoTokenizer')
 
 from dripper.exceptions import DripperLogitsError, DripperResponseParseError
 from dripper.inference.logtis_processor.logits_v1 import \
@@ -17,7 +23,7 @@ from dripper.inference.logtis_processor.logits_v2 import \
 
 def build_token_state_machine(
     max_count: int,
-    tokenizer: AutoTokenizer,
+    tokenizer: 'AutoTokenizer',
     device: str = 'cuda',
     version: str = 'v1',
 ) -> TokenStateMachine_v1 | TokenStateMachine_v2:

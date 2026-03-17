@@ -6,14 +6,21 @@ This is the v1 version without Think logic.
 """
 
 from enum import Enum
+from typing import TYPE_CHECKING
 
-import torch
-from transformers import AutoTokenizer
+if TYPE_CHECKING:
+    import torch
+    from transformers import AutoTokenizer
+else:
+    from dripper.utils.lazy_import import lazy_from, lazy_module
+
+    torch = lazy_module('torch')
+    AutoTokenizer = lazy_from('transformers', 'AutoTokenizer')
 
 from dripper.exceptions import DripperLogitsError
 
 
-def mask_other_logits(logits: torch.Tensor, remained_ids: list[int]):
+def mask_other_logits(logits: 'torch.Tensor', remained_ids: list[int]):
     """Mask all logits except those in remained_ids by setting them to -inf.
 
     This function restricts the model to only generate tokens with IDs in
@@ -212,7 +219,7 @@ def get_static_logits(ids_to_remained: int, device: str = 'cuda'):
     return base_tensor
 
 
-def get_special_logits_map(tokenizer: AutoTokenizer, device: str = 'cuda'):
+def get_special_logits_map(tokenizer: 'AutoTokenizer', device: str = 'cuda'):
     """Build logits map for special tokens.
 
     Creates a dictionary mapping SpecialSingleTokens enum values to their
@@ -246,7 +253,7 @@ class TokenStateMachine:
     This is the v1 version without Think logic.
     """
 
-    def __init__(self, max_count, tokenizer: AutoTokenizer, device: str = 'cuda'):
+    def __init__(self, max_count, tokenizer: 'AutoTokenizer', device: str = 'cuda'):
         """Initialize TokenStateMachine.
 
         Args:
@@ -285,7 +292,7 @@ class TokenStateMachine:
         # Pre-computed logits map
         self.special_logits_map = get_special_logits_map(self.tokenizer, device)
 
-    def handle_begin(self, input_ids: list[int], logits: torch.Tensor) -> torch.Tensor:
+    def handle_begin(self, input_ids: list[int], logits: 'torch.Tensor') -> 'torch.Tensor':
         """Handle Begin state.
 
         Starts JSON generation. If max_count is 0, generates empty object.
@@ -313,7 +320,7 @@ class TokenStateMachine:
             )
         return output_logits
 
-    def handle_end(self, input_ids: list[int], logits: torch.Tensor) -> torch.Tensor:
+    def handle_end(self, input_ids: list[int], logits: 'torch.Tensor') -> 'torch.Tensor':
         """Handle End state.
 
         Transitions to EOS state and forces EOS token generation.
@@ -329,7 +336,7 @@ class TokenStateMachine:
         self.outer_state = OuterState(OuterStateCategory.EOS)
         return output_logits
 
-    def handle_eos(self, input_ids: list[int], logits: torch.Tensor) -> torch.Tensor:
+    def handle_eos(self, input_ids: list[int], logits: 'torch.Tensor') -> 'torch.Tensor':
         """Handle EOS state.
 
         Continues to force EOS token generation.
@@ -343,7 +350,7 @@ class TokenStateMachine:
         """
         return self.special_logits_map[SpecialSingleTokens.EOS]
 
-    def handle_decide_main_other(self, input_ids: list[int], logits: torch.Tensor) -> torch.Tensor:
+    def handle_decide_main_other(self, input_ids: list[int], logits: 'torch.Tensor') -> 'torch.Tensor':
         """Handle Decide_Main_Other state - core of the two-level state machine.
 
         Processes the inner states to generate structured JSON output with
@@ -428,7 +435,7 @@ class TokenStateMachine:
 
         return output_logits
 
-    def process_logit(self, input_ids: list[int], logits: torch.Tensor) -> torch.Tensor:
+    def process_logit(self, input_ids: list[int], logits: 'torch.Tensor') -> 'torch.Tensor':
         """Main processing function for logits modification.
 
         Routes to appropriate handler based on current outer state category.
